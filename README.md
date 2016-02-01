@@ -3,6 +3,7 @@ Software code for the MTE 380 Robot Project.
 
 ## Contributing
 To contribute to the repository, do the following:
+
 1. Clone the repository.
 2. Make a new branch for your work. A descriptive branch name is preferred.
 3. Push the branch containing your changes.
