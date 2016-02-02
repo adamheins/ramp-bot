@@ -3,7 +3,6 @@
 #define BUF_SIZE 10
 
 // A nice little circular buffer for holding sensor readings.
-struct Buffer;
 typedef struct Buffer Buffer;
 
 // Initialize the buffer.
@@ -29,5 +28,7 @@ int buffer_avg(Buffer *buf);
 // @param buf A pointer to the buffer.
 // @param threshold The value the buffer must have jumped to register as a jump.
 //
-// @return True if the buffer has jumped, false otherwise.
-bool buffer_has_jumped(Buffer *buf, int threshold) {
+// @return 0 if the buffer has not jumped, non-zero otherwise:
+//         1 if the first half of the buffer has a lower average.
+//         2 if the second half of the buffer has a lower average.
+int buffer_has_jumped(Buffer *buf, int threshold);
