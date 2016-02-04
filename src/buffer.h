@@ -3,7 +3,11 @@
 #define BUF_SIZE 10
 
 // A nice little circular buffer for holding sensor readings.
-typedef struct Buffer Buffer;
+typedef struct Buffer {
+  int buffer[BUF_SIZE];
+  unsigned int index;
+  unsigned int sum; // NOTE we're making an assumption that overflow will not occur
+} Buffer;
 
 // Initialize the buffer.
 //

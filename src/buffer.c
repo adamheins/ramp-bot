@@ -3,12 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct Buffer {
-  int buffer[BUF_SIZE];
-  unsigned int index;
-  unsigned int sum; // NOTE we're making an assumption that overflow will not occur
-} Buffer;
-
 void buffer_init(Buffer *buf) {
   memset(buf, 0, sizeof(Buffer));
 }
