@@ -6,6 +6,7 @@
 typedef struct Buffer {
   int buffer[BUF_SIZE];
   unsigned int index;
+  unsigned int sum; // NOTE we're making an assumption that overflow will not occur
 } Buffer;
 
 void buffer_init(Buffer *buf) {
@@ -14,16 +15,13 @@ void buffer_init(Buffer *buf) {
 
 void buffer_insert(Buffer *buf, int value) {
   buf->index = (buf->index + 1) % BUF_SIZE;
+  int old_value = buf->buffer[buf->index];
   buf->buffer[buf->index] = value;
+  buf->sum += value - old_value;
 }
 
-// This can be optimized by storing and modifying a current average value.
-int buffer_avg(Buffer *buf) {
-  int sum = 0;
-  for (int i = 0; i < BUF_SIZE; ++i) {
-    sum += buf->buffer[i]; // NOTE we're making an assumption that overflow will not occur
-  }
-  return sum / BUF_SIZE;
+int inline buffer_avg(Buffer *buf) {
+  return buf->sum / BUF_SIZE;
 }
 
 int buffer_has_jumped(Buffer *buf, int threshold) {
