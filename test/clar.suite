@@ -1,0 +1,20 @@
+extern void test_buffer__empty(void);
+extern void test_buffer__insert_one(void);
+extern void test_buffer__insert_all(void);
+extern void test_buffer__insert_overwrite(void);
+static const struct clar_func _clar_cb_buffer[] = {
+    { "empty", &test_buffer__empty },
+    { "insert_one", &test_buffer__insert_one },
+    { "insert_all", &test_buffer__insert_all },
+    { "insert_overwrite", &test_buffer__insert_overwrite }
+};
+static struct clar_suite _clar_suites[] = {
+    {
+        "buffer",
+        { NULL, NULL },
+        { NULL, NULL },
+        _clar_cb_buffer, 4, 1
+    }
+};
+static const size_t _clar_suite_count = 1;
+static const size_t _clar_callback_count = 4;
