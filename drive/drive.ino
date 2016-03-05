@@ -1,3 +1,5 @@
+#include <Ultra.h>
+
 #include <Servo.h>
 
 // NOTE: servo values range from 0 - 180 where:
@@ -23,10 +25,14 @@
 #define SERVO_STOP 90
 
 // Servo pins.
-#define FL_PIN 4
-#define FR_PIN 5
-#define BL_PIN 2
-#define BR_PIN 3
+#define FL_PIN 8
+#define FR_PIN 9
+#define BL_PIN 10
+#define BR_PIN 11
+
+#define PAN_PIN 8
+
+Servo pan_servo;
 
 Servo SERVOS[2][2];
 
@@ -131,27 +137,55 @@ void everest_delay(unsigned long ms) {
  // Main //
 //////////
 
+int ultraPin = 7;
+
+int pan_angle = 0;
+int pan_inc = 1;
+
+// Ultrasonic sensor.
+Ultra *ultra;
+
+int sec = 0;
+
 void setup() {
-  Serial.begin(9600);
-  duration_init(total_duration);
-  duration_init(phase_duration);
-  servo_init();
+  Serial.begin(9600);  
+  ultra = new Ultra(ultraPin);
+  pan_servo.attach(PAN_PIN);
+  pan_servo.write(pan_angle);
+}
+
+// Terminate the program by sitting in an endless loop.
+void stop() {
+  while(1);
 }
 
 // loop() should be the master state machine, which delegates out to sub-loops that govern specific tasks/phases.
 void loop() {
-  unsigned long dur = duration_get_duration(total_duration);
-  Serial.print(dur);
-  if (dur < 3 * PERIOD) {
-    servo_drive_side(LEFT, 2);
-    servo_drive_side(RIGHT, -10);
-  } else if (dur < 5 * PERIOD) {
-     servo_point_turn(10);
-  } else {
-    servo_drive_side(LEFT, 2);
-    servo_drive_side(RIGHT, -10);
+  // dank panning
+  pan_angle += pan_inc;
+  pan_servo.write(pan_angle);
+  if (pan_angle >= 180) {
+    pan_inc = -1;
+  } else if (pan_angle <= 0) {
+    pan_inc = 1;
   }
+  
+  // ultrasonic readings
+  int duration = ultra->ping();
+  int distance = ultra->distance();
+  Edge *edge = ultra->edge();
 
-  everest_delay(PERIOD);
+  Serial.print(distance);
+  Serial.print(" ");
+  if (edge->side == EdgeRight) {
+    Serial.println("Right");
+  } else if (edge->side == EdgeLeft) {
+    Serial.println("Left");
+  } else {
+    Serial.println("None");
+  }
+  Serial.println(edge->side);
+  free(edge);
+
+  delay(50);
 }
-
