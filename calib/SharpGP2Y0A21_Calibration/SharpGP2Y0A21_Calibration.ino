@@ -24,9 +24,9 @@ void loop() {
                                  // Print value in Serial Monitor
   x = irRead();
   
-  // y = 7846.4 * pow(x,-1.083);  IR Calibration F 59
+  //y = 7846.4 * pow(x,-1.083);   //IR Calibration F 59
   // y = 4613.7 * pow(x,-0.992);  IR Calibration F 07
-  // Serial.println(y);
+  Serial.println(irRead());
   
   
   delay(250);                    // Wait another 1/4 second for the next read
