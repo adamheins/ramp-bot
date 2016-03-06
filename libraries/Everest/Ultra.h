@@ -2,8 +2,8 @@
 
 #include <Buffer.h>
 
-#define ULTRA_BUF_LEN 5
-#define ULTRA_EDGE_THRESHOLD 5
+#define ULTRA_BUF_LEN 10
+#define ULTRA_EDGE_THRESHOLD 15
 
 // Ultrasonic sensor.
 class Ultra {
@@ -12,7 +12,9 @@ class Ultra {
     ~Ultra();
     long ping();     // Read the ultrasonic, storing in buffer.
     int distance(); // Get the distance value from the buffer.
-    Edge *edge();
+    int old();
+    int recent();
+    EdgeSide edge();
 
   private:
     Buffer *buffer;
