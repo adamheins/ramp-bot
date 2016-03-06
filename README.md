@@ -17,6 +17,10 @@ has a tendency to fuck things up.
 For this project, we are using an Arduino Mega with an Atmega 2560. The Arduino
 IDE can be downloaded [here](https://www.arduino.cc/en/Main/Software).
 
+## Structure
+The main entry point of the code is the `robot` sketch. A large amount of code
+for the robot can also be found in `libraries/Everest`.
+
 ## Code Style
 This isn't a huge software project so we needn't be too stringent here, but
 let's not make a mess. Keep lines to a length of 80 characters. When in doubt,
