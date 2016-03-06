@@ -7,17 +7,6 @@
 
 #include <Servo.h>
 
-/*
-  // dank panning
-  pan_angle += pan_inc;
-  pan_servo.write(pan_angle);
-  if (pan_angle >= 180) {
-    pan_inc = -1;
-  } else if (pan_angle <= 0) {
-    pan_inc = 1;
-  }
-*/
-
 #define LEFT_SERVO_CORR -5
 #define RIGHT_SERVO_CORR 0
 #define VELOCITY 15
@@ -150,16 +139,21 @@ void loop() {
       // This is tricky because the distance is constantly changing, and the edge itself is transient
       EdgeSide edge = ultra->edge();
       if (edge == EdgeRecent) {
-        
+        // keep turning in same direction
+        base2_dist = ultra->recent();
       } else if (edge == EdgeOld) {
-        
+        // turn in other direction
+        past_turn = past_turn == 1 ? -1 : 1;
+        base2_dist = ultra->old();
       } else {
+        // go forward, don't turn
         if (dist < base2_dist) {
           base2_dist = dist; 
         } else {
           Serial.println("ERROR"); 
         }
       }
+      
       if (dist > base2_dist) {
         // turn toward base (right)
       } else {
