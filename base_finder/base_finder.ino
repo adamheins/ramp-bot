@@ -1,4 +1,4 @@
-#include <Servo.h>
+ #include <Servo.h>
 
 
 
@@ -28,7 +28,7 @@
 
 // Thresholds
 #define RAMP_THRES 4.5
-#define TARGET_THRES 90
+#define TARGET_THRES 50
 
 // Servo Corrections
 #define FL_CORR -2
@@ -122,26 +122,46 @@ int US_sweepSearch()
 {
   long dist;
   int ang; 
-  for(ang = 0; ang < 180; ang = ang + 10)
+  for(ang = 0; ang <= 90; ang = ang + 10)
   {
-    Servo_pan.write(ang);
+    Servo_pan.write(90 + ang);
     dist = US_read();
     Serial.print("TRYING ANGLE :");
-    Serial.println(ang);
+    Serial.println(90 + ang);
     if (dist < TARGET_THRES)
     {
      target_locked = true;
      Serial.println("TARGET LOCKED"); 
-     return ang;
+     return (90 + ang);
     }
     else
     {
       Serial.println("FINDING TARGET");
       target_locked = false;
     }
-
-void loop() {
-
+    delay(500 + 10 * ang);
+    
+    Servo_pan.write(90 - ang);
+    dist = US_read();
+    Serial.print("TRYING ANGLE :");
+    Serial.println(90 - ang);
+    if (dist < TARGET_THRES)
+    {
+     target_locked = true;
+     Serial.println("TARGET LOCKED"); 
+     return (90 - ang);
+    }
+    else
+    {
+      Serial.println("FINDING TARGET");
+      target_locked = false;
+    }
+    delay(500 + 10 * ang);
+  }
+}
+  
+void loop() 
+{
   long us_distance;
   
   us_distance = US_read();
@@ -154,7 +174,6 @@ void loop() {
   }
   else
   {
-     us_distance = US_read();
     Serial.print("Target Angle: ");
     Serial.print(target_angle);
     Serial.print(" Target Distance: ");
@@ -163,9 +182,5 @@ void loop() {
   }  
   // put your main code here, to run repeatedly:
   ramp_L = 2797.1 * pow(irRead(BOTIR_RIGHT),-1.212);
-  ramp_R = 7468.9 * pow(irRead(BOTIR_LEFT),-1.374);
-
-  
-
-      
+  ramp_R = 7468.9 * pow(irRead(BOTIR_LEFT),-1.374);      
 }
