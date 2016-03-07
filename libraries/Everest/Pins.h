@@ -14,10 +14,13 @@
 #define BL_SERVO_PIN 11
 #define BR_SERVO_PIN 12
 
-// IR pins
+// Infrared
 #define FRONT_IR_LEFT_PIN A3
 #define FRONT_IR_RIGHT_PIN A2
 #define BOTTOM_IR_LEFT_PIN A1
 #define BOTTOM_IR_RIGHT_PIN A0
 
-// TODO accel
+// Accelerometer
+#define ACCEL_Z_PIN A8
+#define ACCEL_Y_PIN A9
+#define ACCEL_X_PIN A10
