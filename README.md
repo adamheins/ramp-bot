@@ -21,6 +21,13 @@ IDE can be downloaded [here](https://www.arduino.cc/en/Main/Software).
 The main entry point of the code is the `robot` sketch. A large amount of code
 for the robot can also be found in `libraries/Everest`.
 
+### Constants
+Constants are found in a couple of places, depending on the value in question.
+* Pin number constants are found in `Pins.h`.
+* Phase-dependent constants are found in `Phase.h`.
+* Component constants are found in the header file of the component to which
+  they pertain.
+
 ## Code Style
 This isn't a huge software project so we needn't be too stringent here, but
 let's not make a mess. Keep lines to a length of 80 characters. When in doubt,
