@@ -1,2 +1,0 @@
-everest/drive -> Driving code, abstracts servos
-everest/time  -> Time code, handles delays and time-tracking

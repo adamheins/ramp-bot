@@ -2,16 +2,9 @@
 
 typedef enum EdgeSide {
   EdgeNone = 0,
-  EdgeRight,
-  EdgeLeft,
+  EdgeRecent,
+  EdgeOld,
 } EdgeSide;
-
-class Edge {
-  public:
-    Edge(EdgeSide side, int dist);
-    EdgeSide side;
-    int dist;
-};
 
 class Buffer {
   public:
@@ -19,7 +12,9 @@ class Buffer {
     ~Buffer();
     void insert(int value);
     int average();
-    Edge *edge(int threshold);
+    int old();
+    int recent();
+    EdgeSide edge(int threshold);
 
   private:
     int *arr;

@@ -2,14 +2,10 @@
 
 #include <stdlib.h>
 
-Edge::Edge(EdgeSide side, int dist) {
-  this->side = side;
-  this->dist = dist;
-}
-
 Buffer::Buffer(int len) {
   arr = (int *)calloc(sizeof(int), len);
   this->len = len;
+  index = 0;
 }
 
 Buffer::~Buffer() {
@@ -17,8 +13,8 @@ Buffer::~Buffer() {
 }
 
 void Buffer::insert(int value) {
-  index = (index + 1) % len;
   arr[index] = value;
+  index = (index + 1) % len;
 }
 
 int Buffer::average() {
@@ -29,7 +25,44 @@ int Buffer::average() {
   return sum / len;
 }
 
-Edge *Buffer::edge(int threshold) {
+// Average of the older half of the buffer.
+int Buffer::old() {
+  int sum = 0;
+  int i = index;
+  for (int count = 0; count < len / 2; ++count) {
+    sum += arr[i];
+    i = (i + 1) % len;
+  }
+  return sum * 2 / len;
+}
+
+// Average of the more recent half of the buffer.
+int Buffer::recent() {
+  int sum = 0;
+  int i = (index + len / 2) % len;
+  for (int count = 0; count < len / 2; ++count) {
+    sum += arr[i];
+    i = (i + 1) % len;
+  }
+  return sum * 2 / len;
+}
+
+EdgeSide Buffer::edge(int threshold) {
+  int r = recent();
+  int o = old();
+  int diff = abs(r - o);
+  if (diff > threshold) {
+    if (r > o) {
+      return EdgeOld;
+    } else {
+      return EdgeRecent;
+    }
+  }
+  return EdgeNone;
+}
+
+/*
+EdgeSide Buffer::edge(int threshold) {
   int count = 0;      // Track how many elements we've processed so far.
   int half1_sum = 0;  // Sum of elements in the first half of the buffer.
   int half2_sum = 0;  // Sum of elements in the second half of the buffer.
@@ -55,10 +88,10 @@ Edge *Buffer::edge(int threshold) {
   // Check if the difference between the two halves exceeds the threshold.
   if (abs(half1_sum - half2_sum) * 2 / len >= threshold) {
     if (half1_sum > half2_sum) {
-      return new Edge(EdgeRight, half2_sum / (len / 2));
+      return EdgeRight;
     } else {
-      return new Edge(EdgeLeft, half1_sum / (len / 2));
+      return EdgeLeft;
     }
   }
-  return new Edge(EdgeNone, 0);
-}
+  return EdgeNone;
+}*/

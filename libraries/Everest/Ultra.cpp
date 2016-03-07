@@ -29,6 +29,8 @@ long Ultra::ping() {
   digitalWrite(pin, LOW);
 
   // Wait for response.
+  // NOTE: This takes quite a while, and will slow down panning considerably.
+  // ie. Don't read values while panning.
   pinMode(pin, INPUT);
   long duration = pulseIn(pin, HIGH);
 
@@ -45,6 +47,14 @@ int Ultra::distance() {
 }
 
 // Detect edges of objects.
-Edge *Ultra::edge() {
+EdgeSide Ultra::edge() {
   return buffer->edge(ULTRA_EDGE_THRESHOLD);
+}
+
+int Ultra::old() {
+  return buffer->old();
+}
+
+int Ultra::recent() {
+  return buffer->recent();
 }

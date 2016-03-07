@@ -2,13 +2,15 @@
 
 #include <Arduino.h>
 
-Duration::Duration() {
+Duration::Duration(int stop) {
+  this->stop = stop;
   start = millis();
   current = start;
 }
 
-void Duration::tick() {
+bool Duration::tick() {
   current = millis();
+  return stop != 0 && this->time() >= stop;
 }
 
 unsigned long Duration::time() {
