@@ -17,15 +17,16 @@ has a tendency to fuck things up.
 For this project, we are using an Arduino Mega with an Atmega 2560. The Arduino
 IDE can be downloaded [here](https://www.arduino.cc/en/Main/Software).
 
-The code is not currently written in an Arduino-ish way. So we've got a good
-old Makefile.  Run `make test` to compile and run the unit tests. This creates
-an executable binary in the `bin` directory, which runs the unit tests. Run
-`make clean` to remove the generated binary files.
+## Structure
+The main entry point of the code is the `robot` sketch. A large amount of code
+for the robot can also be found in `libraries/Everest`.
 
-## Tests
-Unit tests go in the `test` directory. We're using a C unit testing framework
-called `clar`. The information and code for it can be found
-[here](https://github.com/vmg/clar).
+### Constants
+Constants are found in a couple of places, depending on the value in question.
+* Pin number constants are found in `Pins.h`.
+* Phase-dependent constants are found in `Phase.h`.
+* Component constants are found in the header file of the component to which
+  they pertain.
 
 ## Code Style
 This isn't a huge software project so we needn't be too stringent here, but
