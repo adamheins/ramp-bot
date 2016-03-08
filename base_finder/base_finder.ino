@@ -29,6 +29,7 @@
 // Thresholds
 #define RAMP_THRES 4.5
 #define TARGET_THRES 50
+#define END_THRES 10
 
 // Servo Corrections
 #define FL_CORR -2
@@ -50,15 +51,25 @@ Servo Servo_BR;
 
 
 bool target_locked = false;
+bool target_found =  true;
 int target_angle;
 
 void init_Servos()
 {
-  //Servo_FL.attach(FL_SERVO_PIN);
-  //Servo_FR.attach(FR_SERVO_PIN);
-  //Servo_BL.attach(BL_SERVO_PIN);
-  //Servo_BR.attach(BR_SERVO_PIN);
+  Servo_FL.attach(FL_SERVO_PIN);
+  Servo_FR.attach(FR_SERVO_PIN);
+  Servo_BL.attach(BL_SERVO_PIN);
+  Servo_BR.attach(BR_SERVO_PIN);
   Servo_pan.attach(PAN_SERVO_PIN);
+}
+
+void stop_Servos()
+{
+  Servo_FL.detach();
+  Servo_FR.detach();
+  Servo_BL.detach();
+  Servo_BR.detach();
+  Servo_pan.detach();
 }
 
 // TODO: Calibrate servos for straight movement
@@ -71,6 +82,44 @@ void drive(int left_pow, int right_pow)
   Servo_BR.write(90 - right_pow + BR_CORR);
 }
 
+void turn_left()
+{
+  drive(-50,50);
+  delay(850);
+}
+
+void L_find()
+{
+  long dist;
+  Servo_pan.write(185);
+  delay(100);
+  drive(20,20);
+  delay(1000);          // tuned
+  stop_Servos();
+  init_Servos();
+  while (true)
+  {
+    drive(60,60);     
+    dist = US_read();
+    //Serial.println(dist);
+    if (dist < TARGET_THRES)
+    {
+      drive(20,20);
+      delay(1250);
+      Servo_pan.write(90);
+      turn_left();
+      while(US_read() > END_THRES)
+      {
+        drive(20,20);
+        delay(500);
+      }
+      stop_Servos();
+      return;
+    }
+    delay(50); 
+  }  
+
+}
 
 // Take multiple readings, and average them out to reduce false readings
 int irRead(int pin) {
@@ -88,12 +137,6 @@ int irRead(int pin) {
   } 
   distance = averaging / 5;      // Average out readings 
   return (distance);
-}
-
-void setup() {
-  Serial.begin(9600);
-  init_Servos();
-  
 }
 
 int US_read()
@@ -117,6 +160,7 @@ int US_read()
   pinMode(ULTRASONIC_PIN, INPUT);
   return us_distance = pulseIn(ULTRASONIC_PIN, HIGH) / 58;
 }
+
 
 int US_sweepSearch()
 {
@@ -159,9 +203,16 @@ int US_sweepSearch()
     delay(500 + 10 * ang);
   }
 }
+
+void setup() {
+  Serial.begin(9600);
+  init_Servos();
+  
+}
   
 void loop() 
 {
+  /*
   long us_distance;
   
   us_distance = US_read();
@@ -183,4 +234,14 @@ void loop()
   // put your main code here, to run repeatedly:
   ramp_L = 2797.1 * pow(irRead(BOTIR_RIGHT),-1.212);
   ramp_R = 7468.9 * pow(irRead(BOTIR_LEFT),-1.374);      
+  */
+  if (target_found == true)
+  {
+    turn_left();
+    stop_Servos();
+    init_Servos();
+    L_find();
+    target_found = false;
+  }
+  
 }
