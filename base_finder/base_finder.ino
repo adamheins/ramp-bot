@@ -28,7 +28,7 @@
 
 // Thresholds
 #define RAMP_THRES 4.5
-#define TARGET_THRES 120
+#define TARGET_THRES 50
 #define END_THRES 10
 
 // Servo Corrections
@@ -85,7 +85,7 @@ void drive(int left_pow, int right_pow)
 void turn_left()
 {
   drive(-50,50);
-  delay(790);
+  delay(850);
 }
 
 void L_find()
@@ -204,7 +204,6 @@ int US_sweepSearch()
   }
 }
 
-
 void setup() {
   Serial.begin(9600);
   init_Servos();
@@ -239,8 +238,6 @@ void loop()
   if (target_found == true)
   {
     turn_left();
-    drive(20,20);
-    delay(500);     //remove 
     stop_Servos();
     init_Servos();
     L_find();
