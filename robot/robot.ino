@@ -8,15 +8,16 @@
 
 #include <Servo.h>
 
-/*
-#define LEFT_SERVO_CORR -5
-#define RIGHT_SERVO_CORR 5
-#define VELOCITY 15
-*/
 
+#define LEFT_SERVO_CORR 0
+#define RIGHT_SERVO_CORR 0
+#define VELOCITY 30
+
+/*
 #define LEFT_SERVO_CORR -2
 #define RIGHT_SERVO_CORR 8
 #define VELOCITY 5
+*/
 
 #define WALL_DISTANCE 10
 #define WALL_THRESHOLD 2
@@ -66,7 +67,7 @@ void setup() {
 
   // Start the four-wheel drive system.
   fwdrive = new FWDrive();
-  //fwdrive->start();
+  fwdrive->start();
 }
 
 // Phase 3 globals
@@ -112,23 +113,26 @@ void loop() {
     
   } else if (phase == PhaseTwo) {
     
-    accel->ping();
-    Serial.println(accel->z());
-    /*
+    //accel->ping();
+    //Serial.println(accel->z());
     bottom_irs[LEFT]->ping();
     bottom_irs[RIGHT]->ping();
   
     bool left_edge = BOTTOM_IR_LEFT_SCALE(bottom_irs[LEFT]->distance()) > BOTTOM_IR_RAMP_THRESHOLD;
+    Serial.print(left_edge);
+    Serial.print(' ');
     bool right_edge = BOTTOM_IR_RIGHT_SCALE(bottom_irs[RIGHT]->distance()) > BOTTOM_IR_RAMP_THRESHOLD;
+    Serial.print(right_edge);
+    Serial.println(' ');
     
     if (left_edge) {
-      fwdrive->left(VELOCITY + LEFT_SERVO_CORR)->right((VELOCITY + RIGHT_SERVO_CORR) * 3 / 4);
+      fwdrive->left(VELOCITY + LEFT_SERVO_CORR)->right((VELOCITY + RIGHT_SERVO_CORR) * 2 / 3);
     } else if (right_edge) {
-      fwdrive->left((VELOCITY + LEFT_SERVO_CORR) * 3 / 4)->right(VELOCITY + RIGHT_SERVO_CORR);
+      fwdrive->left((VELOCITY + LEFT_SERVO_CORR) * 2 / 3)->right(VELOCITY + RIGHT_SERVO_CORR);
     } else {
       fwdrive->left(VELOCITY + LEFT_SERVO_CORR)->right(VELOCITY + RIGHT_SERVO_CORR);
     }
-    */
+
     delay(PHASE_TWO_DELAY);
     
   } else {

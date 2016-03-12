@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <Buffer.h>
 
-#define BOTTOM_IR_RAMP_THRESHOLD 4.5
+#define BOTTOM_IR_RAMP_THRESHOLD 5
 #define IR_BUFFER_LENGTH 5
 
 // Infrared distance sensor.
