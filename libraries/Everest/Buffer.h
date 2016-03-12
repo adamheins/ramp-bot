@@ -12,13 +12,12 @@ class Buffer {
     ~Buffer();
     void insert(int value);
     int average();
-    int old();
-    int recent();
-    EdgeSide edge(int threshold);
 
   private:
     int *arr;
     unsigned int len;
     unsigned int index;
+    long sum;
+    bool filled;
 };
 
