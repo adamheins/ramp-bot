@@ -9,7 +9,7 @@ class Counter {
   private:
     int count;
     int max;
-}
+};
 
 Counter::Counter(int max) {
   count = 0;
@@ -23,10 +23,6 @@ bool Counter::countIfElseReset(bool cond) {
     count = 0;
   }
   return this->done();
-}
-
-void Counter::reset() {
-  count = 0;
 }
 
 bool Counter::done() {
