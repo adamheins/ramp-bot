@@ -14,7 +14,7 @@ typedef enum Phase {
 #define PHASE_ONE_DELAY 100
 
 // Phase two constants
-#define PHASE_TWO_DELAY 50xA
+#define PHASE_TWO_DELAY 100
 
 #define PHASE_TWO_RAMP_UP_SPEED_LEFT 10
 #define PHASE_TWO_RAMP_UP_SPEED_RIGHT 20
