@@ -3,7 +3,10 @@
 #include <Arduino.h>
 #include <Buffer.h>
 
-#define BOTTOM_IR_RAMP_THRESHOLD 4.5
+// Note that it is important to keep this threshold high enough to deal with
+// the bumps at the top of the ramp.
+#define BOTTOM_IR_RAMP_THRESHOLD 7
+
 #define IR_BUFFER_LENGTH 5
 
 // Infrared distance sensor.

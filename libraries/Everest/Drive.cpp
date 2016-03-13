@@ -53,14 +53,14 @@ void FWDrive::stop() {
 }
 
 FWDrive *FWDrive::left(int vel) {
-  servos[LEFT][FRONT]->drive(vel);
-  servos[LEFT][BACK]->drive(vel);
+  servos[LEFT][FRONT]->drive(vel + FL_SERVO_CORR);
+  servos[LEFT][BACK]->drive(vel + BL_SERVO_CORR);
   return this;
 }
 
 FWDrive *FWDrive::right(int vel) {
-  servos[RIGHT][FRONT]->drive(-vel);
-  servos[RIGHT][BACK]->drive(-vel);
+  servos[RIGHT][FRONT]->drive(-vel - FR_SERVO_CORR);
+  servos[RIGHT][BACK]->drive(-vel - BR_SERVO_CORR);
   return this;
 }
 
@@ -74,4 +74,11 @@ FWDrive *FWDrive::pivot(int vel) {
 
 DriveServo *FWDrive::servo(Side side, Bumper bumper) {
   return servos[side][bumper];
+}
+
+void FWDrive::all(int fl, int fr, int bl, int br) {
+  servos[LEFT][FRONT]->drive(fl);
+  servos[LEFT][BACK]->drive(bl);
+  servos[RIGHT][FRONT]->drive(-fr);
+  servos[RIGHT][BACK]->drive(-br);
 }

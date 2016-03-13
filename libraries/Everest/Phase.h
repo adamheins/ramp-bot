@@ -10,6 +10,8 @@ typedef enum Phase {
   PhaseThree,
 } Phase;
 
+/************************ Phase One constants *************************/
+
 // Phase one constants
 #define PHASE_ONE_DELAY 20
 
@@ -22,8 +24,9 @@ typedef enum SubphaseOne {
   PHASE_ONE_DONE,
 } SubphaseOne;
 
-// Phase two constants
-#define PHASE_TWO_DELAY 100
+/************************ Phase Two constants *************************/
+
+#define PHASE_TWO_DELAY 50
 
 #define PHASE_TWO_RAMP_UP_SPEED_LEFT 10
 #define PHASE_TWO_RAMP_UP_SPEED_RIGHT 20
@@ -31,9 +34,18 @@ typedef enum SubphaseOne {
 #define PHASE_TWO_RAMP_DOWN_SPEED_LEFT 3
 #define PHASE_TWO_RAMP_DOWN_SPEED_RIGHT 13
 
+typedef enum SubphaseTwo {
+  PHASE_TWO_ASCEND_RAMP,
+  PHASE_TWO_TOP_OF_RAMP,
+  PHASE_TWO_DESCEND_RAMP,
+  PHASE_TWO_DONE,
+} SubphaseTwo;
+
 // Used to differentially slow one side of the robot, to return it toward the
 // centre of the ramp.
 #define PHASE_TWO_SLOW(s) ((s) * 3 / 4)
+
+/************************ Phase Three constants *************************/
 
 // Phase three constants
 #define PHASE_THREE_DELAY 100

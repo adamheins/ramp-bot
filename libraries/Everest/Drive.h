@@ -3,6 +3,11 @@
 #include <Pins.h>
 #include <Servo.h>
 
+#define FR_SERVO_CORR 3
+#define FL_SERVO_CORR -2
+#define BR_SERVO_CORR 3
+#define BL_SERVO_CORR -3
+
 static const int SERVO_STOP = 90;
 
 typedef enum Side {
@@ -54,6 +59,7 @@ class FWDrive {
     void stop();
     FWDrive *left(int vel);
     FWDrive *right(int vel);
+    void all(int fl, int fr, int bl, int br);
     FWDrive *drive(int vel);
     FWDrive *pivot(int vel);
     DriveServo *servo(Side side, Bumper bumper);

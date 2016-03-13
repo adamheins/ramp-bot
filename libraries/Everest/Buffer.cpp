@@ -1,11 +1,14 @@
 #include <Buffer.h>
 
+#include <Arduino.h>
 #include <stdlib.h>
 
 Buffer::Buffer(int len) {
   arr = (int *)calloc(sizeof(int), len);
   this->len = len;
   index = 0;
+  sum = 0;
+  filled = false;
 }
 
 Buffer::~Buffer() {
@@ -15,13 +18,13 @@ Buffer::~Buffer() {
 // Insert a value into the buffer.
 void Buffer::insert(int value) {
   // Update the current sum of the elements in the buffer by removing the old
-  // value at this index and adding the new value.
+  // value at this index and adding the new value
   sum += (value - arr[index]);
   arr[index] = value;
 
   // If we've just filled that last element in the array, we know the buffer
   // must be full.
-  filled = (index == len - 1);
+  filled = filled || (index == len - 1);
   index = (index + 1) % len;
 }
 

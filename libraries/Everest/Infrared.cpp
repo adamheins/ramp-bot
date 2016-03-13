@@ -13,8 +13,9 @@ Infrared::~Infrared() {
 }
 
 long Infrared::ping() {
-  int distance = analogRead(pin);
+  long distance = analogRead(pin);
   buffer->insert(distance);
+  return distance;
 }
 
 long Infrared::distance() {
