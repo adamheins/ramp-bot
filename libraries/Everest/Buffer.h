@@ -1,11 +1,5 @@
 #pragma once
 
-typedef enum EdgeSide {
-  EdgeNone = 0,
-  EdgeRecent,
-  EdgeOld,
-} EdgeSide;
-
 class Buffer {
   public:
     Buffer(int len);

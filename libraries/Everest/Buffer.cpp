@@ -6,6 +6,8 @@ Buffer::Buffer(int len) {
   arr = (int *)calloc(sizeof(int), len);
   this->len = len;
   index = 0;
+  sum = 0;
+  filled = false;
 }
 
 Buffer::~Buffer() {
@@ -21,7 +23,7 @@ void Buffer::insert(int value) {
 
   // If we've just filled that last element in the array, we know the buffer
   // must be full.
-  filled = (index == len - 1);
+  filled = filled || (index == len - 1);
   index = (index + 1) % len;
 }
 

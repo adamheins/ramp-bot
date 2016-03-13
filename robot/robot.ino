@@ -1,10 +1,13 @@
 #include <Accelerometer.h>
+#include <Buffer.h>
+//#include <Counter.h>
+#include <Drive.h>
+#include <Duration.h>
 #include <Infrared.h>
+#include <Phase.h>
 #include <Pins.h>
 #include <Ultra.h>
-#include <Duration.h>
-#include <Drive.h>
-#include <Phase.h>
+
 
 #include <Servo.h>
 
@@ -23,7 +26,7 @@
 
 
 #define LEFT_SERVO_CORR 0
-#define RIGHT_SERVO_CORR 0
+#define RIGHT_SERVO_CORR 0  
 #define VELOCITY 15
 
 /*
@@ -35,9 +38,27 @@
 #define WALL_DISTANCE 30
 #define WALL_THRESHOLD 4
 
-/************** Global Variables ******************************/
+#define TARGET_THRES 100
+#define END_THRES 10
 
-Phase phase = PhaseOne;
+
+#define ULTRA_LEFT 180
+#define ULTRA_CENTRE 90
+#define ULTRA_RIGHT 0
+
+/************** Global Variables ******************************/
+typedef enum SubphaseOne {
+  PHASE_ONE_TO_BACK_WALL = 0,
+  PHASE_ONE_WALL_FOLLOWING,
+  PHASE_ONE_TURNING1, // go about 45 deg then start looking for ramp
+  PHASE_ONE_TURNING2, // start looking for ramp
+  PHASE_ONE_MOUNTING,
+  PHASE_ONE_DONE,
+} SubphaseOne;
+  
+
+
+Phase phase = PhaseThree;
 SubphaseOne subphase_one = PHASE_ONE_TO_BACK_WALL;
 
 Accelerometer *accel;
@@ -45,7 +66,6 @@ Accelerometer *accel;
 // Ultrasonic sensor.
 Ultra *ultra;
 Servo pan_servo;
-
 // Four-wheel drive system.
 FWDrive *fwdrive;
 
@@ -77,10 +97,56 @@ int ir_avg_front_dist() {
   return (front_dist1 + front_dist2) / 2;
 }
 
+/************************** L FIND ***************************/
+// Adam please place this elsewhere
+void L_find()
+{
+  long dist;
+  pan_servo.write(ULTRA_LEFT);
+  delay(100);
+  fwdrive->drive(20);
+  delay(1000);          // tuned
+  fwdrive->stop();
+  fwdrive->start();
+  Serial.println("finding target");
+  // --------------------[O-O]-D -------|| --------// 
+  while (true)
+  {
+    fwdrive->left(20);
+    fwdrive->right(28);
+    //Serial.print(ultra->ping());   
+    //Serial.print(" ");  
+    dist = ultra->ping();         // XXX : USING PING PLS CHANGE+
+    //dist = ultra->distance();
+    Serial.println(dist);
+    //Serial.println(dist);
+    //Serial.println(dist);
+    if (dist < TARGET_THRES)
+    {
+      Serial.println("target found!");
+      //fwdrive->drive(60);
+      fwdrive->left(20);
+      fwdrive->right(32);
+      delay(1250);
+      pan_servo.write(90);
+      fwdrive->pivot(-45);
+      delay(850);
+      
+      while((ultra->ping()) > END_THRES)  // XXX : USING PING PLS CHANGE ADAM
+      {
+        fwdrive->drive(20);
+        delay(500);
+      }
+      fwdrive->stop();
+      return;
+    }
+    delay(50); 
+  }  
+}
 /******************* Setup ************************************/
 
 void setup() {
-#if TEST
+#if TESTING
   Serial.begin(9600); 
 #endif 
 
@@ -101,7 +167,8 @@ void setup() {
   fwdrive->start();
 }
 
-/************************** Loop ********8*******************/
+
+/************************** Loop ****************************/
 
 void loop() {
     
@@ -225,7 +292,6 @@ void loop() {
    delay(PHASE_ONE_DELAY);
     
   } else if (phase == PhaseTwo) {
-    
     //accel->ping();
     //int z = accel->z();
     //if (accel_counter->countIf(z > 425 && z < 435)) {
@@ -252,6 +318,11 @@ void loop() {
   } else {
     
     // TODO use the lfind algorithm
+    //stop_Servos();  
+    //init_Servos();
+    Serial.println("starting L FIND");
+    L_find();
+    stop();
 
     delay(PHASE_THREE_DELAY);
   }
