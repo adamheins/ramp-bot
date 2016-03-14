@@ -6,6 +6,8 @@ class Buffer {
     ~Buffer();
     void insert(int value);
     int average();
+    void reset();
+    bool edge();
 
   private:
     int *arr;

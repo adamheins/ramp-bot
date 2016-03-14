@@ -11,6 +11,16 @@ Buffer::Buffer(int len) {
   filled = false;
 }
 
+// Reset the buffer to empty state.
+void Buffer::reset() {
+  for (int i = 0; i < len; ++i) {
+    arr[i] = 0;
+  }
+  index = 0;
+  sum = 0;
+  filled = false;
+}
+
 Buffer::~Buffer() {
   free(arr);
 }
@@ -35,4 +45,22 @@ int Buffer::average() {
   } else {
     return sum / index;
   }
+}
+
+bool Buffer::edge() {
+  // assume buffer is filled
+  int i = index;
+  int sum = 0;
+  for (int c = 0; c < len / 2; c++) {
+    sum += arr[i];
+    i = (i + 1) % len;
+  }
+  int avg1 = sum * 2 / len;
+  sum = 0;
+  for (int c = 0; c < len / 2; ++c) {
+    sum += arr[i];
+    i = (i + 1) % len;
+  }
+  int avg2 = sum * 2 / len;
+  return (abs(avg2 - avg1) > 30);
 }
