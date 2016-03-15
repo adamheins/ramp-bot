@@ -16,6 +16,7 @@ class Infrared {
     ~Infrared();
     long ping();
     long distance();
+    void flush();
 
   private:
     Buffer *buffer;

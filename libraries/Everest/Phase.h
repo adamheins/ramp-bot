@@ -26,7 +26,7 @@ typedef enum SubphaseOne {
 
 /************************ Phase Two constants *************************/
 
-#define PHASE_TWO_DELAY 50
+#define PHASE_TWO_DELAY 20
 
 #define PHASE_TWO_RAMP_UP_SPEED_LEFT 10
 #define PHASE_TWO_RAMP_UP_SPEED_RIGHT 20

@@ -21,3 +21,7 @@ long Infrared::ping() {
 long Infrared::distance() {
   return buffer->average();
 }
+
+void Infrared::flush() {
+  buffer->reset();
+}

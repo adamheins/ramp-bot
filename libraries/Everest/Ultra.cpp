@@ -45,3 +45,7 @@ long Ultra::ping() {
 int Ultra::distance() {
   return buffer->average();
 }
+
+bool Ultra::edge() {
+  return buffer->edge();
+}
