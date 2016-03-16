@@ -1,5 +1,12 @@
+// PID
 #include <PID_v1.h>
 
+// IMU
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+
+// Everest
 #include <Accelerometer.h>
 #include <Counter.h>
 #include <Infrared.h>
@@ -31,8 +38,8 @@
 #define RAMP_UP_LEFT_SPEED 20
 #define RAMP_UP_RIGHT_SPEED 20
 
-#define RAMP_DOWN_LEFT_SPEED 15
-#define RAMP_DOWN_RIGHT_SPEED 15
+#define RAMP_DOWN_LEFT_SPEED 10
+#define RAMP_DOWN_RIGHT_SPEED 10
 
 #define WALL_DISTANCE 20
 #define WALL_THRESHOLD 1
@@ -45,8 +52,8 @@
 
 /******************* Global Variables ******************************/
 
-Phase phase = PhaseTwo;
-SubphaseOne subphaseOne = PHASE_ONE_WALL_FOLLOWING;
+Phase phase = PhaseOne;
+SubphaseOne subphaseOne = PHASE_ONE_TO_BACK_WALL;
 SubphaseTwo subphaseTwo = PHASE_TWO_ASCEND_RAMP;
 
 Accelerometer *accel;
@@ -61,6 +68,8 @@ FWDrive *fwdrive;
 // Infrared sensors.
 Infrared *bottom_irs[2];
 Infrared *front_irs[2];
+
+Adafruit_BNO055 bno = Adafruit_BNO055(55);
 
 
 int ir_left_prev = 0;
@@ -92,21 +101,6 @@ int ir_avg_front_dist() {
 void ir_front_flush() {
   front_irs[LEFT]->flush();
   front_irs[RIGHT]->flush();
-}
-
-
-
-void turn90(Side side) {
-  if (side == LEFT) {
-    fwdrive->pivot(-TURN_90_SPEED);
-  } else if (side == RIGHT) {
-    fwdrive->pivot(TURN_90_SPEED);
-  } 
-  delay(TURN_90_TIME);
-}
-
-float pControl(float Kp, float ref, float meas) {
-  return Kp * (ref - meas);
 }
 
 void L_find()
@@ -163,14 +157,12 @@ void L_find()
   }  
 }
 
-
 double pid_out;
 double pid_in;
 double pid_ref = WALL_DISTANCE;
 
 double corr = 0;
 
-// TODO make this able to return negative values from (-base_speed to +base_speed)
 PID myPID(&pid_in, &pid_out, &pid_ref, 1, 0.1, 1, DIRECT);
 
 double ramp_pid_in;
@@ -179,6 +171,64 @@ double ramp_pid_ref = 0;
 
 PID rampPID(&ramp_pid_in, &ramp_pid_out, &ramp_pid_ref, 5, 0.1, 0, DIRECT);
 
+double turn_pid_in = 0;
+double turn_pid_out = 0;
+double turn_pid_ref = 0;
+
+PID turnPID(&turn_pid_in, &turn_pid_out, &turn_pid_ref, 1, 0, 0.01, DIRECT);
+
+float scaleAngle(float angle) {
+  if (abs(angle - 360) < abs(angle)) {
+    return angle - 360;
+  } 
+  return angle;
+}
+
+// Turn 90 deg to either the left or right.
+void turn90(Side side) {
+  sensors_event_t event;
+  bno.getEvent(&event);
+  
+  if (side == LEFT) {
+    turn_pid_ref = scaleAngle(event.orientation.x - 90);
+  } else {
+    turn_pid_ref = scaleAngle(event.orientation.x + 90);
+  }
+  
+  while (true) {
+    bno.getEvent(&event);
+    
+    float angle = scaleAngle(event.orientation.x);
+    
+    PRINT("ref = ");
+    PRINTLN(turn_pid_ref);
+    
+    turn_pid_in = angle;
+    PRINT("angle = ");
+    PRINTLN(angle);
+    
+    
+    turnPID.Compute();
+    PRINT("speed = ");
+    PRINTLN(turn_pid_out);
+    
+    float error = abs(turn_pid_in - turn_pid_ref);
+    PRINT("error = ");
+    PRINTLN(error);
+   
+    
+    fwdrive->pivot(turn_pid_out);
+    
+    if (abs(error) < 3) {
+      return;
+    }
+    
+    delay(20);
+  }
+}
+
+
+
 /******************* Setup ************************************/
 
 void setup() {
@@ -186,18 +236,29 @@ void setup() {
   Serial.begin(9600); 
 #endif
 
+  // Push-button start
   pinMode(BUTTON_PUSH, INPUT_PULLUP);
   pinMode(DIGITAL_GROUND, OUTPUT);
   digitalWrite(DIGITAL_GROUND, LOW);
   
+  // IMU.
+  pinMode(6, OUTPUT);
+  digitalWrite(6, HIGH);
+  if (!bno.begin()) {
+    PRINTLN("IMU not detected gg...");
+    stop();
+  }
+  bno.setExtCrystalUse(true);
 
-
+  // Ultrasonic.
   ultra = new Ultra(ULTRASONIC_PIN);
   pan_servo.attach(PAN_SERVO_PIN);
   pan_servo.write(ULTRA_RIGHT);
   
+  // Accelerometer.
   accel = new Accelerometer(ACCEL_X_PIN, ACCEL_Y_PIN, ACCEL_Z_PIN);
   
+  // IRs.
   bottom_irs[LEFT] = new Infrared(BOTTOM_IR_LEFT_PIN);
   bottom_irs[RIGHT] = new Infrared(BOTTOM_IR_RIGHT_PIN);
   
@@ -207,28 +268,36 @@ void setup() {
   // Start the four-wheel drive system.
   fwdrive = new FWDrive();
   
-   //myPID.SetMode(AUTOMATIC);
+  // PID systems.
+  myPID.SetMode(AUTOMATIC);
+  myPID.SetOutputLimits(-10, 10);
+  
   rampPID.SetMode(AUTOMATIC);
   rampPID.SetOutputLimits(-10, 10);
+  
+  turnPID.SetMode(AUTOMATIC);
+  turnPID.SetOutputLimits(-20, 20);
+  
+  PRINTLN("Setup complete.");
 }
 
 bool run = false;
 
-
-
-/************************** Loop ****************************/
-
-void loop() {
-  
+void waitForButton() {
   while (!run) {
-     PRINTLN("waiting");
      run = !digitalRead(BUTTON_PUSH);
      if (run) {
        fwdrive->start();
      }
      delay(20);
   }
+}
+
+/************************** Loop ****************************/
+
+void loop() {
   
+  waitForButton();
   
   if (phase == PhaseOne) {
    switch(subphaseOne) {
@@ -242,14 +311,14 @@ void loop() {
       
       // Next phase transition.
       if (front_dist < WALL_DISTANCE - 5) {
-        PRINTLN("Subphase wall following");
-        
         ir_front_flush();
 
         pan_servo.write(ULTRA_RIGHT);        
         turn90(LEFT);
         
         subphaseOne = PHASE_ONE_WALL_FOLLOWING;
+        
+        PRINTLN("Subphase wall following");
       } else {
         break;
       }
@@ -260,70 +329,48 @@ void loop() {
       ultra->ping();
       int wall_dist = ultra->distance();
       
-      PRINTLN(wall_dist);
-      
       // Negative error = we are too far from the wall - turn right
       // Positive error = we are too close to the wall - turn left
-      //float Kp = 1.5;
-      //float corr = pControl(Kp, WALL_DISTANCE, wall_dist);
       pid_in = wall_dist;
       if (myPID.Compute()) {
         corr = pid_out; 
-      }  
+      }
+      PRINTLN(corr);
       
       fwdrive->left(20 - corr)->right(20 + corr);
-      
-      /*
-      bool too_close = wall_dist < WALL_DISTANCE - WALL_THRESHOLD;
-      bool too_far = wall_dist > WALL_DISTANCE + WALL_THRESHOLD;
-  
-      // XXX probably should use P-control here...
-      if (too_close) {
-        // turn right away from wall
-        PRINTLN("wall too close");
-        fwdrive->left(20 - corr)->right(20 + corr);
-      } else if (too_far) {
-        // turn left toward wall
-        PRINTLN("wall too far");
-        fwdrive->left(20)->right(10);
-      } else {
-        PRINTLN("wall just right");
-        fwdrive->left(20)->right(20);
-      }*/
       
       // Monitor front distance.
       ir_ping_front();
       int front_dist = ir_avg_front_dist();
       
       // Check if we proceed to next subphase.
-      //if (front_dist <= 25) {
-      if (front_dist <= WALL_DISTANCE - 5) {
+      // NOTE that we need to compare against 0 in case the buffer is empty.
+      if (front_dist <= 22 && front_dist > 0) {
+        // Turn left and hope the ramp is there.
+        turn90(LEFT);
         stop();
-        ir_front_flush();
-
-        subphaseOne = PHASE_ONE_TURNING1;
+        
+        fwdrive->drive(20);
+        
+        subphaseOne = PHASE_ONE_MOUNTING;
+        PRINTLN("phase 1 mounting");
       } else {
         break; 
       }
     }
+    /*
     case PHASE_ONE_TURNING1: {
       
       // Turn left and hope the ramp is there.
       turn90(LEFT);
       
-      // wall follow more bitches
-      
       fwdrive->drive(20);
       
-      //subphaseOne = PHASE_ONE_MOUNTING;
-      subphaseOne = PHASE_ONE_WALL_FOLLOWING;
-      PRINTLN("more wall following HELL YEAH");
-      //PRINTLN("phase 1 mounting");
-      //stop();
+      subphaseOne = PHASE_ONE_MOUNTING;
+      PRINTLN("phase 1 mounting");
       break;
     }
     case PHASE_ONE_TURNING2: {
-    /*
       ir_ping_front();
       int front_dist1 = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
       int front_dist2 = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
@@ -347,8 +394,8 @@ void loop() {
         ir_left_prev = front_dist1;
         ir_right_prev = front_dist2;
         break;
-      }*/
-    }
+      }
+    }*/
     case PHASE_ONE_MOUNTING: {
       
       ir_ping_front();
@@ -359,16 +406,18 @@ void loop() {
       PRINT(" ");
       PRINTLN(front_dist2);
       
+      // TODO PID plox
+      
       // Head toward ramp.
       if (front_dist1 > front_dist2 + 20) {
         PRINTLN("turn right");
-        fwdrive->left(20 - i_error)->right(10 + i_error);
+        fwdrive->left(20)->right(10);
       } else if (front_dist2 > front_dist1) {
         PRINTLN("turn left");
-        fwdrive->left(10 - i_error)->right(20 + i_error);
+        fwdrive->left(10)->right(20);
       } else {
         PRINTLN("straight");
-        fwdrive->left(20 - i_error)->right(20 + i_error);
+        fwdrive->left(20)->right(20);
       }
       break;
     }
@@ -436,7 +485,7 @@ void loop() {
     
     //PRINT(left_edge);
     //PRINT(" ");
-
+    //PRINTLN(right_edge);
     
     ramp_pid_in = 0;
     if (left_edge) {
@@ -451,16 +500,6 @@ void loop() {
     PRINTLN(corr);
     
     fwdrive->left(left_speed - corr)->right(right_speed + corr);
-    
-    // PI control used to stay on the ramp.
-    /*
-    if (left_edge) {
-      fwdrive->left(left_speed - i_error)->right(right_speed * 2 / 3);
-    } else if (right_edge) {
-      fwdrive->left(left_speed * 2 / 3)->right(right_speed + i_error);
-    } else {
-      fwdrive->left(left_speed - i_error)->right(right_speed + i_error);
-    }*/
     
     delay(PHASE_TWO_DELAY);
     

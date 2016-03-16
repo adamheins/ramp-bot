@@ -42,6 +42,8 @@ void Buffer::insert(int value) {
 int Buffer::average() {
   if (filled) {
     return sum / len;
+  } else if (index == 0) { // Handle empty case.
+    return 0;
   } else {
     return sum / index;
   }
