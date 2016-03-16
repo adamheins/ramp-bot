@@ -45,16 +45,3 @@ long Ultra::ping() {
 int Ultra::distance() {
   return buffer->average();
 }
-
-// Detect edges of objects.
-EdgeSide Ultra::edge() {
-  return buffer->edge(ULTRA_EDGE_THRESHOLD);
-}
-
-int Ultra::old() {
-  return buffer->old();
-}
-
-int Ultra::recent() {
-  return buffer->recent();
-}
