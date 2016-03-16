@@ -2,6 +2,9 @@
 
 // All pins are defined in this header file.
 
+#define BUTTON_PUSH 2
+#define DIGITAL_GROUND 4
+
 // Ultrasonic
 #define ULTRASONIC_PIN 7
 
