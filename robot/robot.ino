@@ -7,7 +7,6 @@
 #include <Adafruit_BNO055.h>
 
 // Everest
-#include <Accelerometer.h>
 #include <Counter.h>
 #include <Infrared.h>
 #include <Pins.h>
@@ -18,7 +17,7 @@
 
 #include <Servo.h>
 
-/***************************** defines ******************************/
+/********************************** #defines **********************************/
 
 // Set to 1 if the robot is in test mode, 0 if in competition mode.
 #define TESTING 1
@@ -42,6 +41,7 @@
 #define RAMP_DOWN_LEFT_SPEED 10
 #define RAMP_DOWN_RIGHT_SPEED 10
 
+// XXX deprecated
 #define WALL_DISTANCE 20
 #define WALL_THRESHOLD 1
 
@@ -53,13 +53,12 @@
 #define TURN_BAILOUT_TIME 4000
 #define TURN_ERROR_THRESHOLD 3
 
-/******************* Global Variables ******************************/
+/********************************** Globals ***********************************/
 
+// Phase information.
 Phase phase = PhaseTwo;
 SubphaseOne subphaseOne = PHASE_ONE_TO_BACK_WALL;
 SubphaseTwo subphaseTwo = PHASE_TWO_ASCEND_RAMP;
-
-Accelerometer *accel;
 
 // Ultrasonic sensor.
 Ultra *ultra;
@@ -72,45 +71,23 @@ FWDrive *fwdrive;
 Infrared *bottom_irs[2];
 Infrared *front_irs[2];
 
+// IMU.
 Adafruit_BNO055 bno = Adafruit_BNO055(55);
 
+// True if the robot is running, false otherwise.
 bool run = false;
 
-/****************************** Functions ****************************/
+// True if the robot is PID driving in a straigh line, false otherwise.
+bool drive_pid_flag = false;
 
-void waitForButton();
+// Stores an old heading orientation that we want to use later.
+float old_heading = 0;
 
-// Terminate the program by detaching motors and sitting in endless loop.
-void stop() {
-  fwdrive->stop();
-  run = false;
-  PRINTLN("Stopped. Press button to continue...");
-  waitForButton();
-}
-
-void ir_ping_front() {
-  front_irs[LEFT]->ping();
-  front_irs[RIGHT]->ping();
-}
-
-int ir_avg_front_dist() {
-  int ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
-  int ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
-  return (ir_left_dist + ir_right_dist) / 2;
-}
-
-void ir_front_flush() {
-  front_irs[LEFT]->flush();
-  front_irs[RIGHT]->flush();
-}
-
-/****************************** PID ****************************/
+/************************************ PID *************************************/
 
 double pid_out;
 double pid_in;
 double pid_ref = WALL_DISTANCE;
-
-double corr = 0;
 
 PID myPID(&pid_in, &pid_out, &pid_ref, 1, 0.1, 1, DIRECT);
 
@@ -138,7 +115,34 @@ double drive_pid_ref = 0;
 
 PID drivePID(&drive_pid_in, &drive_pid_out, &drive_pid_ref, 1, 0.1, 0, DIRECT);
 
-// Turn 90 deg to either the left or right.
+/********************************* Functions **********************************/
+
+void waitForButton();
+
+// Terminate the program by detaching motors and sitting in endless loop.
+void stop() {
+  fwdrive->stop();
+  run = false;
+  PRINTLN("Stopped. Press button to continue...");
+  waitForButton();
+}
+
+void ir_ping_front() {
+  front_irs[LEFT]->ping();
+  front_irs[RIGHT]->ping();
+}
+
+int ir_avg_front_dist() {
+  int ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
+  int ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
+  return (ir_left_dist + ir_right_dist) / 2;
+}
+
+void ir_front_flush() {
+  front_irs[LEFT]->flush();
+  front_irs[RIGHT]->flush();
+}
+
 void turn90(Side side) {
   sensors_event_t event;
   bno.getEvent(&event);
@@ -257,9 +261,6 @@ void turnToHeading(float toHeading) {
   }
 }
 
-
-bool drive_pid_flag = false;
-
 void PIDDrive(int vel) {
   sensors_event_t event;
   bno.getEvent(&event);
@@ -294,10 +295,12 @@ void PIDDrive(int vel) {
   fwdrive->left(vel + drive_pid_out)->right(vel - drive_pid_out);
 }
 
+// Must call after PID driving is done.
 void PIDDriveDone() {
   drive_pid_flag = false;
 }
 
+// PID drive for a specific duration.
 void PIDDriveDuration(int vel, int period, int duration) {
   int num_periods = duration / period;
   for (int i = 0; i < num_periods; i++) {
@@ -307,7 +310,6 @@ void PIDDriveDuration(int vel, int period, int duration) {
   PIDDriveDone();
 }
 
-float old_heading = 0;
 
 // Phase 3
 void L_find() {
@@ -431,7 +433,19 @@ void L_find() {
   }
 }
 
-/******************* Setup ************************************/
+void waitForButton() {
+  while (!run) {
+    run = !digitalRead(BUTTON_PUSH_PIN);
+     if (run) {
+#if MOTORS_ON
+       fwdrive->start();
+#endif
+     }
+     delay(20);
+  }
+}
+
+/*********************************** setup ************************************/
 
 void setup() {
 #if TESTING
@@ -439,15 +453,15 @@ void setup() {
 #endif
 
   // Push-button start
-  pinMode(BUTTON_PUSH, INPUT_PULLUP);
-  pinMode(DIGITAL_GROUND, OUTPUT);
-  digitalWrite(DIGITAL_GROUND, LOW);
+  pinMode(BUTTON_PUSH_PIN, INPUT_PULLUP);
+  pinMode(BUTTON_DIGITAL_GROUND_PIN, OUTPUT);
+  digitalWrite(BUTTON_DIGITAL_GROUND_PIN, LOW);
 
   // IMU.
-  pinMode(6, OUTPUT);
-  digitalWrite(6, HIGH);
+  pinMode(IMU_DIGITAL_HIGH_PIN, OUTPUT);
+  digitalWrite(IMU_DIGITAL_HIGH_PIN, HIGH);
   if (!bno.begin()) {
-    PRINTLN("IMU not detected gg...");
+    PRINTLN("IMU not detected. Reset to continue...");
     stop();
   }
   bno.setExtCrystalUse(true);
@@ -456,9 +470,6 @@ void setup() {
   ultra = new Ultra(ULTRASONIC_PIN);
   pan_servo.attach(PAN_SERVO_PIN);
   pan_servo.write(ULTRA_RIGHT);
-
-  // Accelerometer.
-  accel = new Accelerometer(ACCEL_X_PIN, ACCEL_Y_PIN, ACCEL_Z_PIN);
 
   // IRs.
   bottom_irs[LEFT] = new Infrared(BOTTOM_IR_LEFT_PIN);
@@ -488,17 +499,6 @@ void setup() {
 
   PRINTLN("Setup complete.");
   PRINTLN("Press button to continue...");
-}
-
-
-void waitForButton() {
-  while (!run) {
-     run = !digitalRead(BUTTON_PUSH);
-     if (run) {
-       fwdrive->start();
-     }
-     delay(20);
-  }
 }
 
 /************************************ loop ************************************/
@@ -609,11 +609,12 @@ void loop() {
      phase = PhaseTwo;
      subphaseOne = PHASE_ONE_DONE;
      PRINTLN("PHASE 2");
+     drivePID.SetOutputLimits(-10, 10);
    } else {
      delay(20);
    }
 
-/************************* Phase Two **********************************/
+/********************************* Phase Two **********************************/
 
   } else if (phase == PhaseTwo) {
     int left_speed, right_speed, ramp_thres;
@@ -629,13 +630,15 @@ void loop() {
           PRINTLN("top of ramp");
           PRINT("z angle = ");
           PRINTLN(event.orientation.z);
+
+          // Tighten up these output limits for descent, which is at a slower pace.
+          rampPID.SetOutputLimits(-5, 5);
+          drivePID.SetOutputLimits(-5, 5);
         } else {
           left_speed = RAMP_UP_LEFT_SPEED;
           right_speed = RAMP_UP_RIGHT_SPEED;
           ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
 
-          // Tighten up these output limits for descent, which is at a slower pace.
-          rampPID.SetOutputLimits(-5, 5);
           break;
         }
       case PHASE_TWO_TOP_OF_RAMP:
@@ -657,6 +660,9 @@ void loop() {
           ultra->flush();
           phase = PhaseThree;
 
+          // Restore these limits to normal for regular driving.
+          drivePID.SetOutputLimits(-20, 20);
+
           PRINTLN("PHASE 3");
           PRINT("z angle = ");
           PRINTLN(event.orientation.z);
@@ -677,8 +683,6 @@ void loop() {
     bool left_edge = BOTTOM_IR_LEFT_SCALE(bottom_irs[LEFT]->distance()) > ramp_thres;
     bool right_edge = BOTTOM_IR_RIGHT_SCALE(bottom_irs[RIGHT]->distance()) > ramp_thres;
 
-    // TODO incorporate some straightness correction in here as well
-
     ramp_pid_in = 0;
     if (left_edge) {
       ramp_pid_in = 1;
@@ -686,16 +690,29 @@ void loop() {
       ramp_pid_in = -1;
     }
 
-    if (rampPID.Compute()) {
-      corr = ramp_pid_out;
-    }
-    PRINTLN(corr);
+    // If we're over an edge, deal with that. Otherwise, straighten out.
+    if (left_edge || right_edge) {
+      rampPID.Compute();
+      fwdrive->left(left_speed - ramp_pid_out)->right(right_speed + ramp_pid_out);
+    } else {
+      drive_pid_ref = old_heading;
+      drive_pid_in = event.orientation.x;
 
-    fwdrive->left(left_speed - corr)->right(right_speed + corr);
+      // Correct the angle so it produces the correct error for the PID algorithm.
+      if (drive_pid_in > drive_pid_ref + 180) {
+        drive_pid_in -= 360;
+      } else if (drive_pid_in < drive_pid_ref - 180) {
+        drive_pid_in += 360;
+      }
+
+      drivePID.Compute();
+
+      fwdrive->left(left_speed + drive_pid_out)->right(right_speed - drive_pid_out);
+    }
 
     delay(PHASE_TWO_DELAY);
 
-/************************* Phase Three **********************************/
+/******************************** Phase Three *********************************/
 
   } else {
 
