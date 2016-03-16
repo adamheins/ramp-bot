@@ -49,3 +49,7 @@ int Ultra::distance() {
 bool Ultra::edge() {
   return buffer->edge();
 }
+
+void Ultra::flush() {
+  buffer->reset();
+}

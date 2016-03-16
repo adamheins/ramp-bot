@@ -16,6 +16,7 @@ class Ultra {
     ~Ultra();
     long ping();     // Read the ultrasonic, storing in buffer.
     int distance(); // Get the distance value from the buffer.
+    void flush();
     bool edge();
 
   private:
