@@ -44,15 +44,17 @@
 #define WALL_DISTANCE 20
 #define WALL_THRESHOLD 1
 
-#define TARGET_THRES 200
-#define END_THRES 10
+#define TARGET_THRES 150  // at most
+#define END_THRES_ULTRA 5
+#define END_THRES_IR 7
+#define END_THRES_FRONT_CASE 120 
 
 #define TURN_90_SPEED 45
 #define TURN_90_TIME 750
 
 /******************* Global Variables ******************************/
 
-Phase phase = PhaseOne;
+Phase phase = PhaseThree;
 SubphaseOne subphaseOne = PHASE_ONE_TO_BACK_WALL;
 SubphaseTwo subphaseTwo = PHASE_TWO_ASCEND_RAMP;
 
@@ -106,10 +108,40 @@ void ir_front_flush() {
 void L_find()
 {
   long dist;
+  
+  // Worst Case Forward Detection
+   ultra->ping();
+   ir_ping_front();
+        
+   ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
+   ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
+   dist = ultra->distance();
+   Serial.println("farthest distance");
+   Serial.print(ir_left_dist);
+   Serial.print(" ");
+   Serial.print(dist);
+   Serial.print(" ");
+   Serial.println(ir.ir_right_dist);
+   stop();
+   if (dist < END_THRES_FRONT_CASE)   
+    {
+      do
+      {
+        fwdrive->drive(60)
+        ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
+        ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
+        dist = ultra->distance();
+        Serial.print(ir_left_dist);
+        Serial.print(" ");
+        Serial.print(dist);
+        Serial.print(" ");
+        Serial.println(ir.ir_right_dist);
+      }while(ir_left_dist > END_THRES_FRONT_CASE && ir_right_dist > END_THRES_FRONT_CASE && us_dist > END_THRES_FRONT_CASE);
+    }
+
   pan_servo.write(ULTRA_LEFT);
   delay(100);
   fwdrive->drive(20);
-  
   // Delay a bit so we get past the ramp.
   delay(2000);          // tuned
 
@@ -121,16 +153,17 @@ void L_find()
     ultra->ping();
     dist = ultra->distance();
     
-    PRINTLN(dist);
+    Serial.println(dist);
+    //PRINTLN(dist);
 
     if (dist < TARGET_THRES) {
-      PRINTLN("target found!");
-      
+      //PRINTLN("target found!");
+      Serial.println("target found!");
       pan_servo.write(90);
       fwdrive->drive(20);
       
       // Continue moving forward a bit to align.
-      delay(2000);
+      delay(2000);      // XXX: TUNABLE
 
       turn90(LEFT);
       
@@ -147,8 +180,12 @@ void L_find()
         ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
         ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
         us_dist = ultra->distance();
-        
-      } while(ir_left_dist > END_THRES && ir_right_dist > END_THRES && us_dist > END_THRES);
+        Serial.print(ir_left_dist);
+        Serial.print(" ");
+        Serial.print(dist);
+        Serial.print(" ");
+        Serial.println(ir.ir_right_dist);
+      } while(ir_left_dist > END_THRES_IR && ir_right_dist > END_THRES_ULTRA && us_dist > END_THRES_IR);
       
       return;
     }
@@ -504,10 +541,11 @@ void loop() {
     delay(PHASE_TWO_DELAY);
     
   } else {
+  // *************************** PHASE THREE ***********************************// 
     // Turn left.
-    fwdrive->pivot(-45);
-    delay(850);
-    
+    turn90(LEFT);
+    fwdrive->drive(20);
+    delay(1000);
     // Find that damn base. Stranded mountaineers better be grateful.
     L_find();
     stop();
