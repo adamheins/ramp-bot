@@ -6,6 +6,7 @@
 
 #define ULTRA_LEFT 180
 #define ULTRA_CENTRE 90
+#define ULTRA_CENTER 90
 #define ULTRA_RIGHT 0
 
 // Ultrasonic sensor.
