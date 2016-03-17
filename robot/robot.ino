@@ -7,7 +7,6 @@
 #include <Adafruit_BNO055.h>
 
 // Everest
-#include <Counter.h>
 #include <Infrared.h>
 #include <Pins.h>
 #include <Ultra.h>
@@ -45,7 +44,7 @@
 #define WALL_DISTANCE 20
 #define WALL_THRESHOLD 1
 
-#define TARGET_THRES 30//160 // Keep this very tight
+#define TARGET_THRES 160 // Keep this very tight
 #define END_THRES_ULTRA 8
 #define END_THRES_IR 8
 #define END_THRES_FRONT_CASE 120
@@ -57,7 +56,7 @@
 
 // Phase information.
 Phase phase = PhaseOne;
-SubphaseOne subphaseOne = PHASE_ONE_MOUNTING;
+SubphaseOne subphaseOne = PHASE_ONE_TO_BACK_WALL;
 SubphaseTwo subphaseTwo = PHASE_TWO_ASCEND_RAMP;
 
 // Ultrasonic sensor.
@@ -87,14 +86,8 @@ float old_heading = 0;
 
 /************************************ PID *************************************/
 
-double pid_out;
-double pid_in;
-double pid_ref = WALL_DISTANCE;
-
-PID myPID(&pid_in, &pid_out, &pid_ref, 1, 0.1, 1, DIRECT);
-
-double ramp_pid_in;
-double ramp_pid_out;
+double ramp_pid_in = 0;
+double ramp_pid_out = 0;
 double ramp_pid_ref = 0;
 
 PID rampPID(&ramp_pid_in, &ramp_pid_out, &ramp_pid_ref, 5, 0.5, 0, DIRECT);
@@ -310,10 +303,20 @@ void PIDDriveDuration(int vel, int period, int duration) {
   PIDDriveDone();
 }
 
+void PIDDriveDurationNoStop(int vel, int period, int duration) {
+  int num_periods = duration / period;
+  for (int i = 0; i < num_periods; i++) {
+    PIDDrive(vel);
+    delay(period);
+  }
+}
 
 // Phase 3
 void L_find() {
   PIDDrive(20);
+
+  ultra->flush();
+  ir_front_flush();
 
   // Worst Case Forward Detection
   ultra->ping();
@@ -332,8 +335,7 @@ void L_find() {
 
   // The base may be in front of us.
   // If so, just drive forward until we hit it.
-  /*
-  if (ir_left_dist < END_THRES_FRONT_CASE || ir_right_dist < END_THRES_FRONT_CASE) {
+  if (us_dist < END_THRES_FRONT_CASE) {
     PRINTLN("The base is in front of us.");
     do {
       PIDDrive(20);
@@ -354,7 +356,7 @@ void L_find() {
     // XXX watch out for the wall...
     PIDDriveDone();
     return;
-  }*/
+  }
 
   pan_servo.write(ULTRA_LEFT);
 
@@ -384,13 +386,30 @@ void L_find() {
     if (us_dist < TARGET_THRES) {
       PRINTLN("Base 2 found!");
 
+      ultra->flush();
+
+      fwdrive->stop();
+      pan_servo.write(ULTRA_CENTRE);
+      long stop_dist = us_dist;
+      long dist_to_adjust = us_dist * 0.34202; // ~ sin(20)
+      delay(250);
+      fwdrive->start();
+
+      do {
+        ultra->ping();
+        us_dist = ultra->distance();
+        PIDDrive(20);
+        delay(50);
+      } while (us_dist > stop_dist - dist_to_adjust);
+      PIDDriveDone();
+
       pan_servo.write(ULTRA_RIGHT);
 
       ultra->flush();
       ir_front_flush();
 
       // Continue moving forward a bit to align properly.
-      PIDDriveDuration(20, 50, 1500);
+      //PIDDriveDuration(20, 50, 1500);
 
       // Turn 90 deg toward the base. Assume we're either pointed right at the
       // base or are two far to the right of it, since the ultrasonic provides
@@ -428,13 +447,13 @@ void L_find() {
 
         // Detect if we've just mounted the base. This triggers a countdown to
         // stop the robot.
-        if (!on_base && abs(event.orientation.z) > 12) {
+        if (!on_base && (abs(event.orientation.z) > 12 || abs(event.orientation.y) > 8)) {
           on_base = true;
           on_base_time = millis();
         }
 
         // We've been on the base for long enough. Stop.
-        if (on_base && millis() > on_base_time + 1500) {
+        if (on_base && millis() > on_base_time + 500) {
           PRINTLN("We're done, we timed out on the base.");
           stop();
         }
@@ -453,6 +472,7 @@ void L_find() {
       return;
     } else if (ir_left_dist < 20 && ir_right_dist < 20) {
       // We've hit the wall and found nothing. Turn left to continue looking.
+      PIDDriveDone();
       turn90(LEFT);
     }
 
@@ -509,9 +529,6 @@ void setup() {
   fwdrive = new FWDrive();
 
   // PID systems.
-  myPID.SetMode(AUTOMATIC);
-  myPID.SetOutputLimits(-10, 10);
-
   rampPID.SetMode(AUTOMATIC);
   rampPID.SetOutputLimits(-10, 10);
 
@@ -531,15 +548,8 @@ void setup() {
 /************************************ loop ************************************/
 
 void test() {
-  front_irs[LEFT]->ping();
-  front_irs[RIGHT]->ping();
-
-  long ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
-  long ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
-
-  PRINT(ir_left_dist);
-  PRINT(" ");
-  PRINTLN(ir_right_dist);
+  sensors_event_t event;
+  bno.getEvent(&event);
 
   delay(100);
 }
@@ -553,6 +563,7 @@ void loop() {
   if (phase == PhaseOne) {
    switch(subphaseOne) {
     case PHASE_ONE_TO_BACK_WALL: {
+      /*
       PIDDrive(20);
 
       ir_ping_front();
@@ -574,11 +585,14 @@ void loop() {
         PRINTLN("Phase 1: Wall Following");
       } else {
         break;
-      }
+      }*/
+
+      // Drive a little just to get off of Base 1.
+      PIDDriveDurationNoStop(20, 50, 2000);
+      subphaseOne = PHASE_ONE_WALL_FOLLOWING;
+      PRINTLN("Past the first base.");
     }
     case PHASE_ONE_WALL_FOLLOWING: { // XXX we're not wall following anymore
-
-      PIDDrive(20);
 
       // Monitor front distance.
       ir_ping_front();
@@ -635,7 +649,7 @@ void loop() {
    sensors_event_t event;
    bno.getEvent(&event);
 
-   if (abs(event.orientation.z) > 20.0) {
+   if (abs(event.orientation.z) > 25.0) {
      phase = PhaseTwo;
      subphaseOne = PHASE_ONE_DONE;
      PRINTLN("PHASE 2");
@@ -653,7 +667,7 @@ void loop() {
 
     switch(subphaseTwo) {
       case PHASE_TWO_ASCEND_RAMP:
-        if (abs(event.orientation.z) < 5.0) {
+        if (abs(event.orientation.z) < 1.0) {
           subphaseTwo = PHASE_TWO_TOP_OF_RAMP;
 
           PRINTLN("top of ramp");
@@ -670,7 +684,7 @@ void loop() {
           break;
         }
       case PHASE_TWO_TOP_OF_RAMP:
-        if (abs(event.orientation.z) > 20.0) {
+        if (abs(event.orientation.z) > 25.0) {
           subphaseTwo = PHASE_TWO_DESCEND_RAMP;
 
           PRINTLN("descend ramp");
