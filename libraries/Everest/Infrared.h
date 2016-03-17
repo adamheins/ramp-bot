@@ -5,7 +5,7 @@
 
 // Note that it is important to keep this threshold high enough to deal with
 // the bumps at the top of the ramp.
-#define BOTTOM_IR_RAMP_THRESHOLD 7
+#define BOTTOM_IR_RAMP_THRESHOLD 8
 
 #define IR_BUFFER_LENGTH 5
 
