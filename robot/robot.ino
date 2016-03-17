@@ -55,7 +55,7 @@
 /********************************** Globals ***********************************/
 
 // Phase information.
-Phase phase = PhaseThree;
+Phase phase = PhaseOne;
 SubphaseOne subphaseOne = PHASE_ONE_TO_BACK_WALL;
 SubphaseTwo subphaseTwo = PHASE_TWO_ASCEND_RAMP;
 
@@ -147,8 +147,10 @@ void turn90(Side side) {
 
   // Set our reference 90 deg away.
   if (side == LEFT) {
+    PRINTLN("Turning left...");
     turn_pid_ref = ((int)event.orientation.x - 90) % 360;
   } else {
+    PRINTLN("Turning right...");
     turn_pid_ref = ((int)event.orientation.x + 90) % 360;
   }
 
@@ -284,6 +286,7 @@ void PIDDrive(int vel) {
 
   drivePID.Compute();
 
+  /*
   PRINTLN("drive info");
   PRINT("ref =");
   PRINTLN(drive_pid_ref);
@@ -292,6 +295,7 @@ void PIDDrive(int vel) {
   PRINT("control = ");
   PRINTLN(drive_pid_out);
   PRINTLN(" ");
+  */
 
   fwdrive->left(vel + drive_pid_out)->right(vel - drive_pid_out);
 }
@@ -319,9 +323,8 @@ void PIDDriveDurationNoStop(int vel, int period, int duration) {
   }
 }
 
+// Check if the robot has mounted the base. Initiate a countdown to stop if so.
 bool check_on_base() {
-  // We also want to stop after a short time if we're on the base but not
-  // aligned to see the pole.
   sensors_event_t event;
   bno.getEvent(&event);
 
@@ -334,41 +337,17 @@ bool check_on_base() {
 
   // We've been on the base for long enough. Stop.
   if (on_base && millis() > on_base_time + 400) {
-    PRINTLN("We're done, we timed out on the base.");
+    PRINTLN("We're done; we timed out on the base.");
     stop();
   }
 }
 
-// Phase 3
+// Phase 3 algorithm.
 void L_find() {
-  PIDDrive(20);
-
-  ultra->flush();
-  ir_front_flush();
-
-  // Worst Case Forward Detection
-  ultra->ping();
-  ir_ping_front();
-
-  long ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
-  long ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
-  long us_dist = ultra->distance();
-
-  Serial.println("farthest distance");
-  Serial.print(ir_left_dist);
-  Serial.print(" ");
-  Serial.print(us_dist);
-  Serial.print(" ");
-  Serial.println(ir_right_dist);
-
   pan_servo.write(ULTRA_LEFT);
 
   // Delay a bit so we get past the ramp.
-  //PIDDriveDuration(20, 50, 2000);
-  for (int i = 0; i < 40; i++) {
-    PIDDrive(20);
-    delay(50);
-  }
+  PIDDriveDurationNoStop(20, 50, 2000);
 
   ultra->flush();
   ir_front_flush();
@@ -380,28 +359,24 @@ void L_find() {
     ultra->ping();
     ir_ping_front();
 
-    ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
-    ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
-    us_dist = ultra->distance();
+    long ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
+    long ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
+    long us_dist = ultra->distance();
 
     PRINTLN(us_dist);
 
     if (us_dist < TARGET_THRES) {
       PRINTLN("Base 2 found!");
 
-      PIDDriveDone();
-
-      //pan_servo.write(ULTRA_RIGHT);
-
       ultra->flush();
       ir_front_flush();
+
+      pan_servo.write(ULTRA_CENTRE);
 
       // Continue moving forward a bit to align properly.
       PIDDriveDuration(20, 50, 1500);
 
-      // Turn 90 deg toward the base. Assume we're either pointed right at the
-      // base or are two far to the right of it, since the ultrasonic provides
-      // a conical reading. Search to the right side to handle this case.
+      // Turn toward the base.
       turn90(LEFT);
 
       // Drive until we're close to the second base, or we see the base to our
@@ -418,11 +393,11 @@ void L_find() {
         ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
         us_dist = ultra->distance();
 
-        Serial.print(ir_left_dist);
-        Serial.print(" ");
-        Serial.print(us_dist);
-        Serial.print(" ");
-        Serial.println(ir_right_dist);
+        PRINT(ir_left_dist);
+        PRINT(" ");
+        PRINT(us_dist);
+        PRINT(" ");
+        PRINTLN(ir_right_dist);
 
         // We also want to stop after a short time if we're on the base but not
         // aligned to see the pole.
@@ -517,13 +492,6 @@ void setup() {
 
 /************************************ loop ************************************/
 
-bool flag = false;
-
-void test() {
-  PIDDrive(20);
-  delay(20);
-}
-
 void loop() {
 
   waitForButton();
@@ -533,36 +501,12 @@ void loop() {
   if (phase == PhaseOne) {
    switch(subphaseOne) {
     case PHASE_ONE_TO_BACK_WALL: {
-      /*
-      PIDDrive(20);
-
-      ir_ping_front();
-      int front_dist = ir_avg_front_dist();
-
-      PRINTLN(front_dist);
-
-      // Next phase transition.
-      if (front_dist < WALL_DISTANCE - 5) {
-        ir_front_flush();
-
-        PIDDriveDone();
-
-        pan_servo.write(ULTRA_RIGHT);
-        turn90(LEFT);
-
-        subphaseOne = PHASE_ONE_WALL_FOLLOWING;
-
-        PRINTLN("Phase 1: Wall Following");
-      } else {
-        break;
-      }*/
-
       // Drive a little just to get off of Base 1.
       PIDDriveDurationNoStop(20, 50, 2000);
       subphaseOne = PHASE_ONE_WALL_FOLLOWING;
       PRINTLN("Past the first base.");
     }
-    case PHASE_ONE_WALL_FOLLOWING: { // XXX we're not wall following anymore
+    case PHASE_ONE_WALL_FOLLOWING: {
 
       // Monitor front distance.
       ir_ping_front();
@@ -570,7 +514,7 @@ void loop() {
 
       // Check if we proceed to next subphase.
       // NOTE that we need to compare against 0 in case the buffer is empty.
-      if (front_dist <= 20 && front_dist > 0) {
+      if (front_dist <= 21 && front_dist > 0) {
         ir_front_flush();
 
         PIDDriveDone();
@@ -599,6 +543,8 @@ void loop() {
       long front_dist1 = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
       long front_dist2 = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
 
+      // Control loop to align with the ramp. We want to minimize the
+      // difference between the two front IR sensor readings.
       align_pid_in = front_dist1 - front_dist2;
 
       alignPID.Compute();
@@ -627,11 +573,10 @@ void loop() {
 /********************************* Phase Two **********************************/
 
   } else if (phase == PhaseTwo) {
-    int left_speed, right_speed, ramp_thres;
+    int left_speed, right_speed, left_ramp_thres, right_ramp_thres;
 
     sensors_event_t event;
     bno.getEvent(&event);
-    //PRINTLN(event.orientation.z);
 
     switch(subphaseTwo) {
       case PHASE_TWO_ASCEND_RAMP:
@@ -639,19 +584,18 @@ void loop() {
           subphaseTwo = PHASE_TWO_TOP_OF_RAMP;
 
           PRINTLN("At top of ramp.");
-          //PRINT("z angle = ");
-          //PRINTLN(event.orientation.z);
 
           // Tighten up these output limits for descent, which is at a slower pace.
           rampPID.SetOutputLimits(-5, 5);
-          rampPID.SetTunings(2, 0.1, 0);
+          rampPID.SetTunings(3, 0.2, 0);
 
           left_speed = RAMP_DOWN_LEFT_SPEED;
           right_speed = RAMP_DOWN_RIGHT_SPEED;
         } else {
           left_speed = RAMP_UP_LEFT_SPEED;
           right_speed = RAMP_UP_RIGHT_SPEED;
-          ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
+          left_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
+          right_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
 
           break;
         }
@@ -660,12 +604,12 @@ void loop() {
           subphaseTwo = PHASE_TWO_DESCEND_RAMP;
 
           PRINTLN("Descending ramp.");
-          //PRINT("z angle = ");
-          //PRINTLN(event.orientation.z);
+
         } else {
           left_speed = RAMP_DOWN_LEFT_SPEED;
           right_speed = RAMP_DOWN_RIGHT_SPEED;
-          ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
+          left_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
+          right_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
           break;
         }
       case PHASE_TWO_DESCEND_RAMP:
@@ -675,13 +619,13 @@ void loop() {
           phase = PhaseThree;
 
           PRINTLN("PHASE 3");
-          //PRINT("z angle = ");
-          //PRINTLN(event.orientation.z);
+
           break;
         } else {
           left_speed = RAMP_DOWN_LEFT_SPEED;
           right_speed = RAMP_DOWN_RIGHT_SPEED;
-          ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
+          left_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
+          right_ramp_thres = 5;
           break;
         }
         break;
@@ -691,14 +635,8 @@ void loop() {
     bottom_irs[LEFT]->ping();
     bottom_irs[RIGHT]->ping();
 
-    bool left_edge = BOTTOM_IR_LEFT_SCALE(bottom_irs[LEFT]->distance()) > ramp_thres;
-    bool right_edge = BOTTOM_IR_RIGHT_SCALE(bottom_irs[RIGHT]->distance()) > ramp_thres;
-
-    /*
-    PRINT(BOTTOM_IR_LEFT_SCALE(bottom_irs[LEFT]->distance()));
-    PRINT(" ");
-    PRINTLN(BOTTOM_IR_RIGHT_SCALE(bottom_irs[RIGHT]->distance()));
-    */
+    bool left_edge = BOTTOM_IR_LEFT_SCALE(bottom_irs[LEFT]->distance()) > left_ramp_thres;
+    bool right_edge = BOTTOM_IR_RIGHT_SCALE(bottom_irs[RIGHT]->distance()) > right_ramp_thres;
 
     ramp_pid_in = 0;
     if (left_edge) {
@@ -719,12 +657,15 @@ void loop() {
 
   } else {
 
+    turnToHeading(old_heading);
+
+    // We want some aggressive alignment.
+    /*
+    alignPID.SetOutputLimits(-10, 10);
+
     // Turn to the heading we had before attempting to mount the ramp. This
     // should be pretty straight, and we may not be super straight coming off
     // the ramp.
-    //turnToHeading(old_heading);
-
-    // XXX output limits may not be enough
     ir_ping_front();
     long front_dist1 = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
     long front_dist2 = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
@@ -739,14 +680,13 @@ void loop() {
 
       fwdrive->left(-align_pid_out)->right(align_pid_out);
       delay(20);
-    }
+    }*/
 
     pan_servo.write(ULTRA_CENTRE);
 
     // Drive forward from the ramp a bit.
     PIDDriveDuration(20, 50, 1000);
 
-    PRINTLN("now turning left");
     turn90(LEFT);
 
     // Find that damn base. Stranded mountaineers better be grateful.
