@@ -39,7 +39,7 @@ void Buffer::insert(int value) {
 }
 
 // Note the code to handle initial zero-filled buffer.
-int Buffer::average() {
+long Buffer::average() {
   if (filled) {
     return sum / len;
   } else if (index == 0) { // Handle empty case.

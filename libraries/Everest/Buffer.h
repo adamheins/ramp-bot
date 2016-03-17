@@ -5,7 +5,7 @@ class Buffer {
     Buffer(int len);
     ~Buffer();
     void insert(int value);
-    int average();
+    long average();
     void reset();
     bool edge();
 
