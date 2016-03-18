@@ -16,13 +16,15 @@
 
 #include <Servo.h>
 
-/********************************** #defines **********************************/
+/****************************** Program Control *******************************/
 
-// Set to 1 if the robot is in test mode, 0 if in competition mode.
-#define TESTING 1
+#define SERIAL_ON 1
 #define MOTORS_ON 1
+#define TURN_DIAGNOSTICS 1
+#define DRIVE_DIAGNOSTICS 1
+#define HEADING_DIAGNOSTICS 1
 
-#if TESTING
+#if SERIAL_ON
   #define PRINT(s) Serial.print(s);
   #define PRINTLN(s) Serial.println(s);
 #else
@@ -30,32 +32,23 @@
   #define PRINTLN(s)
 #endif
 
-// TODO get rid of this mess once we've done a little more testing with the
-// servo correction factors.
+/********************************** Constants *********************************/
 
-// This makes us go pretty damn straight.
-#define RAMP_UP_LEFT_SPEED 20
-#define RAMP_UP_RIGHT_SPEED 20
+#define RAMP_UP_SPEED 20
+#define RAMP_DOWN_SPEED 10
 
-#define RAMP_DOWN_LEFT_SPEED 10
-#define RAMP_DOWN_RIGHT_SPEED 10
-
-// XXX deprecated
-#define WALL_DISTANCE 20
-#define WALL_THRESHOLD 1
-
-#define TARGET_THRES 200 // Keep this very tight
+#define TARGET_THRES 185 // Keep this very tight
 #define END_THRES_ULTRA 8
 #define END_THRES_IR 8
 #define END_THRES_FRONT_CASE 120
 
 #define TURN_BAILOUT_TIME 4000
-#define TURN_ERROR_THRESHOLD 3
+#define TURN_ERROR_THRESHOLD 1
 
 /********************************** Globals ***********************************/
 
 // Phase information.
-Phase phase = PhaseOne;
+Phase phase = PHASE_ONE;
 SubphaseOne subphaseOne = PHASE_ONE_TO_BACK_WALL;
 SubphaseTwo subphaseTwo = PHASE_TWO_ASCEND_RAMP;
 
@@ -82,7 +75,7 @@ bool drive_pid_flag = false;
 bool base_found_to_the_right = false;
 
 // Stores an old heading orientation that we want to use later.
-float old_heading = 0; // XXX deprecated
+float old_heading = 0;
 
 unsigned long on_base_time = 0;
 bool on_base = false;
@@ -117,7 +110,8 @@ PID drivePID(&drive_pid_in, &drive_pid_out, &drive_pid_ref, 1, 1, 0.1, DIRECT);
 
 void waitForButton();
 
-// Terminate the program by detaching motors and sitting in endless loop.
+// Terminate the program by detaching motors and sitting in endless loop until
+// button is pressed.
 void stop() {
   fwdrive->stop();
   run = false;
@@ -171,8 +165,8 @@ void turn90(Side side) {
     float error = abs(turn_pid_in - turn_pid_ref);
     turnPID.Compute();
 
-    // Diagnostic information.
-    PRINTLN("turn info");
+#if TURN_DIAGNOSTICS
+    PRINTLN("Turn Diagnostics");
     PRINT("ref = ");
     PRINTLN(turn_pid_ref);
 
@@ -185,6 +179,7 @@ void turn90(Side side) {
     PRINT("error = ");
     PRINTLN(error);
     PRINTLN(" ");
+#endif
 
     fwdrive->pivot(turn_pid_out);
 
@@ -200,6 +195,9 @@ void turn90(Side side) {
       PRINT("Turn failsafe hit after: ");
       PRINT(millis() - start);
       PRINTLN(" ms.");
+      fwdrive->stop();
+      delay(500);
+      fwdrive->start();
       return;
     }
 
@@ -228,7 +226,8 @@ void turnToHeading(float toHeading) {
     float error = abs(turn_pid_in - turn_pid_ref);
     turnPID.Compute();
 
-    /*
+#if HEADING_DIAGNOSTICS
+    PRINTLN("Heading Diagnostics");
     PRINT("ref = ");
     PRINTLN(turn_pid_ref);
 
@@ -241,7 +240,7 @@ void turnToHeading(float toHeading) {
     PRINT("error = ");
     PRINTLN(error);
     PRINTLN(" ");
-    */
+#endif
 
     fwdrive->pivot(turn_pid_out);
 
@@ -260,6 +259,28 @@ void turnToHeading(float toHeading) {
       return;
     }
 
+    delay(20);
+  }
+}
+
+void alignIRs(float aggression, long tolerance) {
+  // How aggressively we want to align.
+  alignPID.SetOutputLimits(-aggression, aggression);
+
+  ir_ping_front();
+  long front_dist1 = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
+  long front_dist2 = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
+
+  while (abs(front_dist1 - front_dist2) > tolerance) {
+    ir_ping_front();
+    front_dist1 = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
+    front_dist2 = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
+
+    align_pid_in = front_dist1 - front_dist2;
+
+    alignPID.Compute();
+
+    fwdrive->left(-align_pid_out)->right(align_pid_out);
     delay(20);
   }
 }
@@ -286,8 +307,8 @@ void PIDDrive(int vel) {
 
   drivePID.Compute();
 
-  /*
-  PRINTLN("drive info");
+#if DRIVE_DIAGNOSTICS
+  PRINTLN("Drive diagnostics");
   PRINT("ref =");
   PRINTLN(drive_pid_ref);
   PRINT("angle =");
@@ -295,7 +316,7 @@ void PIDDrive(int vel) {
   PRINT("control = ");
   PRINTLN(drive_pid_out);
   PRINTLN(" ");
-  */
+#endif
 
   fwdrive->left(vel + drive_pid_out)->right(vel - drive_pid_out);
 }
@@ -408,7 +429,7 @@ void L_find() {
       PIDDriveDone();
 
       return;
-    } else if (ir_left_dist < 20 && ir_right_dist < 20) {
+    } else if (ir_left_dist < 25 && ir_right_dist < 25) {
       // We've hit the wall and found nothing. Turn left to continue looking.
       PIDDriveDone();
 
@@ -416,7 +437,11 @@ void L_find() {
       ir_front_flush();
 
       PRINTLN("Turn left, keep searching.");
+
       turn90(LEFT);
+
+      // Move forward a bit to avoid detecting the wall.
+      PIDDriveDurationNoStop(20, 50, 3000);
     }
 
     check_on_base();
@@ -440,7 +465,7 @@ void waitForButton() {
 /*********************************** setup ************************************/
 
 void setup() {
-#if TESTING
+#if SERIAL_ON
   Serial.begin(9600);
 #endif
 
@@ -470,7 +495,7 @@ void setup() {
   front_irs[LEFT] = new Infrared(FRONT_IR_LEFT_PIN);
   front_irs[RIGHT] = new Infrared(FRONT_IR_RIGHT_PIN);
 
-  // Start the four-wheel drive system.
+  // Four-wheel drive system.
   fwdrive = new FWDrive();
 
   // PID systems.
@@ -492,13 +517,19 @@ void setup() {
 
 /************************************ loop ************************************/
 
+bool flag = false;
+
+void test() {
+  alignIRs(8, 2);
+}
+
 void loop() {
 
   waitForButton();
 
 /********************************* Phase One **********************************/
 
-  if (phase == PhaseOne) {
+  if (phase == PHASE_ONE) {
    switch(subphaseOne) {
     case PHASE_ONE_TO_BACK_WALL: {
       // Drive a little just to get off of Base 1.
@@ -511,10 +542,11 @@ void loop() {
       // Monitor front distance.
       ir_ping_front();
       int front_dist = ir_avg_front_dist();
+      PIDDrive(20);
 
       // Check if we proceed to next subphase.
       // NOTE that we need to compare against 0 in case the buffer is empty.
-      if (front_dist <= 21 && front_dist > 0) {
+      if (front_dist <= 22 && front_dist > 0) {
         ir_front_flush();
 
         PIDDriveDone();
@@ -559,10 +591,9 @@ void loop() {
    // If the robot is on the ramp, go to phase two.
    sensors_event_t event;
    bno.getEvent(&event);
-   PRINTLN(event.orientation.z);
 
    if (abs(event.orientation.z) > 25.0) {
-     phase = PhaseTwo;
+     phase = PHASE_TWO;
      subphaseOne = PHASE_ONE_DONE;
      PRINTLN("PHASE 2");
      PRINTLN("Ascending ramp.");
@@ -572,7 +603,7 @@ void loop() {
 
 /********************************* Phase Two **********************************/
 
-  } else if (phase == PhaseTwo) {
+  } else if (phase == PHASE_TWO) {
     int left_speed, right_speed, left_ramp_thres, right_ramp_thres;
 
     sensors_event_t event;
@@ -585,15 +616,16 @@ void loop() {
 
           PRINTLN("At top of ramp.");
 
-          // Tighten up these output limits for descent, which is at a slower pace.
+          // Tighten up these output limits for descent, which is at a slower
+          // pace, and can be pretty scary.
           rampPID.SetOutputLimits(-5, 5);
           rampPID.SetTunings(3, 0.2, 0);
 
-          left_speed = RAMP_DOWN_LEFT_SPEED;
-          right_speed = RAMP_DOWN_RIGHT_SPEED;
+          left_speed = RAMP_DOWN_SPEED;
+          right_speed = RAMP_DOWN_SPEED;
         } else {
-          left_speed = RAMP_UP_LEFT_SPEED;
-          right_speed = RAMP_UP_RIGHT_SPEED;
+          left_speed = RAMP_UP_SPEED;
+          right_speed = RAMP_UP_SPEED;
           left_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
           right_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
 
@@ -606,8 +638,8 @@ void loop() {
           PRINTLN("Descending ramp.");
 
         } else {
-          left_speed = RAMP_DOWN_LEFT_SPEED;
-          right_speed = RAMP_DOWN_RIGHT_SPEED;
+          left_speed = RAMP_DOWN_SPEED;
+          right_speed = RAMP_DOWN_SPEED;
           left_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
           right_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
           break;
@@ -616,14 +648,14 @@ void loop() {
         if (abs(event.orientation.z) < 2.0) {
           subphaseTwo = PHASE_TWO_DONE;
           ultra->flush();
-          phase = PhaseThree;
+          phase = PHASE_THREE;
 
           PRINTLN("PHASE 3");
 
           break;
         } else {
-          left_speed = RAMP_DOWN_LEFT_SPEED;
-          right_speed = RAMP_DOWN_RIGHT_SPEED;
+          left_speed = RAMP_DOWN_SPEED;
+          right_speed = RAMP_DOWN_SPEED;
           left_ramp_thres = BOTTOM_IR_RAMP_THRESHOLD;
           right_ramp_thres = 5;
           break;
@@ -646,9 +678,6 @@ void loop() {
     }
     rampPID.Compute();
 
-    PRINT("ramp pid out = ");
-    PRINTLN(ramp_pid_out);
-
     fwdrive->left(left_speed - ramp_pid_out)->right(right_speed + ramp_pid_out);
 
     delay(20);
@@ -657,30 +686,11 @@ void loop() {
 
   } else {
 
-    turnToHeading(old_heading);
+    //turnToHeading(old_heading);
 
-    // We want some aggressive alignment.
-    /*
-    alignPID.SetOutputLimits(-10, 10);
-
-    // Turn to the heading we had before attempting to mount the ramp. This
-    // should be pretty straight, and we may not be super straight coming off
-    // the ramp.
-    ir_ping_front();
-    long front_dist1 = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
-    long front_dist2 = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
-    while (abs(front_dist1 - front_dist2) > 2) {
-      ir_ping_front();
-      front_dist1 = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
-      front_dist2 = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
-
-      align_pid_in = front_dist1 - front_dist2;
-
-      alignPID.Compute();
-
-      fwdrive->left(-align_pid_out)->right(align_pid_out);
-      delay(20);
-    }*/
+    // Attempt to align the robot parallel to the ramp, as it may have come off
+    // of it at an angle.
+    alignIRs(8, 2);
 
     pan_servo.write(ULTRA_CENTRE);
 

@@ -5,9 +5,9 @@
 // 2. Climp the ramp.
 // 3. Find the second base.
 typedef enum Phase {
-  PhaseOne = 0,
-  PhaseTwo,
-  PhaseThree,
+  PHASE_ONE = 0,
+  PHASE_TWO,
+  PHASE_THREE,
 } Phase;
 
 /************************ Phase One constants *************************/
