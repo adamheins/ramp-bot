@@ -37,7 +37,7 @@
 #define RAMP_UP_SPEED 20
 #define RAMP_DOWN_SPEED 10
 
-#define TARGET_THRES 185 // Keep this very tight
+#define TARGET_THRES 185
 #define END_THRES_ULTRA 8
 #define END_THRES_IR 8
 #define END_THRES_FRONT_CASE 120
@@ -363,93 +363,6 @@ bool check_on_base() {
   }
 }
 
-// Phase 3 algorithm.
-void L_find() {
-  pan_servo.write(ULTRA_LEFT);
-
-  // Delay a bit so we get past the ramp.
-  PIDDriveDurationNoStop(20, 50, 2000);
-
-  ultra->flush();
-  ir_front_flush();
-
-  PRINTLN("Searching for Base 2.");
-  while (true) {
-    PIDDrive(20);
-
-    ultra->ping();
-    ir_ping_front();
-
-    long ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
-    long ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
-    long us_dist = ultra->distance();
-
-    PRINTLN(us_dist);
-
-    if (us_dist < TARGET_THRES) {
-      PRINTLN("Base 2 found!");
-
-      ultra->flush();
-      ir_front_flush();
-
-      pan_servo.write(ULTRA_CENTRE);
-
-      // Continue moving forward a bit to align properly.
-      PIDDriveDuration(20, 50, 1500);
-
-      // Turn toward the base.
-      turn90(LEFT);
-
-      // Drive until we're close to the second base, or we see the base to our
-      // right side.
-      do {
-        PIDDrive(20);
-        delay(20);
-
-        // Sample all three front sensors to see if we're near base two.
-        ultra->ping();
-        ir_ping_front();
-
-        ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
-        ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
-        us_dist = ultra->distance();
-
-        PRINT(ir_left_dist);
-        PRINT(" ");
-        PRINT(us_dist);
-        PRINT(" ");
-        PRINTLN(ir_right_dist);
-
-        // We also want to stop after a short time if we're on the base but not
-        // aligned to see the pole.
-        check_on_base();
-
-      } while(ir_left_dist > END_THRES_IR
-              && ir_right_dist > END_THRES_IR);
-      PIDDriveDone();
-
-      return;
-    } else if (ir_left_dist < 25 && ir_right_dist < 25) {
-      // We've hit the wall and found nothing. Turn left to continue looking.
-      PIDDriveDone();
-
-      ultra->flush();
-      ir_front_flush();
-
-      PRINTLN("Turn left, keep searching.");
-
-      turn90(LEFT);
-
-      // Move forward a bit to avoid detecting the wall.
-      PIDDriveDurationNoStop(20, 50, 3000);
-    }
-
-    check_on_base();
-
-    delay(20);
-  }
-}
-
 void waitForButton() {
   while (!run) {
     run = !digitalRead(BUTTON_PUSH_PIN);
@@ -686,7 +599,9 @@ void loop() {
 
   } else {
 
-    //turnToHeading(old_heading);
+    // Phase Three isn't broken up into subphases liek Phase One and Two.
+    // That's because it was originally written by Rahul, and he didn't write
+    // it in that style. Thanks, Rahul.
 
     // Attempt to align the robot parallel to the ramp, as it may have come off
     // of it at an angle.
@@ -700,7 +615,89 @@ void loop() {
     turn90(LEFT);
 
     // Find that damn base. Stranded mountaineers better be grateful.
-    L_find();
+    pan_servo.write(ULTRA_LEFT);
+
+    // Delay a bit so we get past the ramp.
+    PIDDriveDurationNoStop(20, 50, 2000);
+
+    ultra->flush();
+    ir_front_flush();
+
+    PRINTLN("Searching for Base 2.");
+    while (true) {
+      PIDDrive(20);
+
+      ultra->ping();
+      ir_ping_front();
+
+      long ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
+      long ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
+      long us_dist = ultra->distance();
+
+      PRINTLN(us_dist);
+
+      if (us_dist < TARGET_THRES) {
+        PRINTLN("Base 2 found!");
+
+        ultra->flush();
+        ir_front_flush();
+
+        pan_servo.write(ULTRA_CENTRE);
+
+        // Continue moving forward a bit to align properly.
+        PIDDriveDuration(20, 50, 1500);
+
+        // Turn toward the base.
+        turn90(LEFT);
+
+        // Drive until we're close to the second base, or we see the base to our
+        // right side.
+        do {
+          PIDDrive(20);
+          delay(20);
+
+          // Sample all three front sensors to see if we're near base two.
+          ultra->ping();
+          ir_ping_front();
+
+          ir_left_dist = FRONT_IR_LEFT_SCALE(front_irs[LEFT]->distance());
+          ir_right_dist = FRONT_IR_RIGHT_SCALE(front_irs[RIGHT]->distance());
+          us_dist = ultra->distance();
+
+          PRINT(ir_left_dist);
+          PRINT(" ");
+          PRINT(us_dist);
+          PRINT(" ");
+          PRINTLN(ir_right_dist);
+
+          // We also want to stop after a short time if we're on the base but not
+          // aligned to see the pole.
+          check_on_base();
+
+        } while(ir_left_dist > END_THRES_IR
+                && ir_right_dist > END_THRES_IR);
+        PIDDriveDone();
+
+        return;
+      } else if (ir_left_dist < 25 && ir_right_dist < 25) {
+        // We've hit the wall and found nothing. Turn left to continue looking.
+        PIDDriveDone();
+
+        ultra->flush();
+        ir_front_flush();
+
+        PRINTLN("Turn left, keep searching.");
+
+        turn90(LEFT);
+
+        // Move forward a bit to avoid detecting the wall.
+        PIDDriveDurationNoStop(20, 50, 3000);
+      }
+
+      check_on_base();
+
+      delay(20);
+    }
     PRINTLN("We've observed the base and stopped.");
     stop();
   }
