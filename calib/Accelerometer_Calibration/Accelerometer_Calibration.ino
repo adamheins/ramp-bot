@@ -18,18 +18,18 @@ int zRawMax = 512;
 // Take multiple samples to reduce noise
 const int sampleSize = 10;
 
-void setup() 
+void setup()
 {
   analogReference(EXTERNAL);
   Serial.begin(9600);
 }
 
-void loop() 
+void loop()
 {
   int xRaw = ReadAxis(xInput);
   int yRaw = ReadAxis(yInput);
   int zRaw = ReadAxis(zInput);
-  
+
   if (digitalRead(buttonPin) == LOW)
   {
     AutoCalibrate(xRaw, yRaw, zRaw);
@@ -40,12 +40,12 @@ void loop()
     Serial.print(xRawMin);
     Serial.print("-");
     Serial.print(xRawMax);
-    
+
     Serial.print(", Y: ");
     Serial.print(yRawMin);
     Serial.print("-");
     Serial.print(yRawMax);
-    
+
     Serial.print(", Z: ");
     Serial.print(zRawMin);
     Serial.print("-");
@@ -56,17 +56,17 @@ void loop()
     Serial.print(yRaw);
     Serial.print(", ");
     Serial.print(zRaw);
-    
+
     // Convert raw values to 'milli-Gs"
     long xScaled = map(xRaw, xRawMin, xRawMax, -1000, 1000);
     long yScaled = map(yRaw, yRawMin, yRawMax, -1000, 1000);
     long zScaled = map(zRaw, zRawMin, zRawMax, -1000, 1000);
-  
+
     // re-scale to fractional Gs
     float xAccel = xScaled / 1000.0;
     float yAccel = yScaled / 1000.0;
     float zAccel = zScaled / 1000.0;
-  
+
     Serial.print(" :: ");
     Serial.print(xAccel);
     Serial.print("G, ");
@@ -74,7 +74,7 @@ void loop()
     Serial.print("G, ");
     Serial.print(zAccel);
     Serial.println("G");
-  
+
   delay(500);
   }
 }
@@ -108,7 +108,7 @@ void AutoCalibrate(int xRaw, int yRaw, int zRaw)
   {
     xRawMax = xRaw;
   }
-  
+
   if (yRaw < yRawMin)
   {
     yRawMin = yRaw;

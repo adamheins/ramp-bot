@@ -1,4 +1,4 @@
-# Everest
+# Ramp Bot
 This code was written for the MTE 380 Robotic Project course.
 
 The objective of the course was to build a robot that could traverse an
@@ -6,8 +6,7 @@ obstacle course. The obstacle course consisted of two 8 foot by 8 foot sections
 separated by a 3 foot high wall. The wall had a ramp leading up and down the
 wall at an angle of 30 degrees. The goal was to get from a specified point on
 one side of the wall to a another specified point on the other side of wall.
-Since our robot climbed the ramp, we called ourselves Everest Robotics. Just a
-difference of scale.
+Since our robot climbed the ramp.
 
 This is (very close to) the code that ran on the robot during the competition,
 which the robot completed successfully.
